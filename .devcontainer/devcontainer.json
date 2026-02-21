@@ -16,10 +16,17 @@
 
 	// Use 'postCreateCommand' to run commands after the container is created.
 	"postCreateCommand": "go install github.com/air-verse/air@latest && go mod download",
-	"postStartCommand": "nohup bash -c 'air &' > nohup.out"
+	"postStartCommand": "nohup bash -c 'air &' > nohup.out",
 
 	// Configure tool-specific properties.
-	// "customizations": {},
+	"customizations": {
+		"vscode": {
+			"extensions": [
+				"golang.go",
+				"qwtel.sqlite-viewer"
+			]
+		}
+	}
 
 	// Uncomment to connect as root instead. More info: https://aka.ms/dev-containers-non-root.
 	// "remoteUser": "root"
