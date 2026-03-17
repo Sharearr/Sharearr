@@ -2,9 +2,9 @@ package main
 
 import (
 	"context"
+	"database/sql"
+	"fmt"
 	"net/netip"
-	"sync"
-	"time"
 
 	"github.com/anacrolix/generics"
 	"github.com/anacrolix/torrent/tracker"
@@ -12,76 +12,80 @@ import (
 	"github.com/anacrolix/torrent/tracker/udp"
 )
 
-type peerEntry struct {
-	left     int64
-	lastSeen time.Time
+type DBTracker struct {
+	peers *PeerService
 }
 
-// MemTracker is an in-memory implementation of the AnnounceTracker interface.
-type MemTracker struct {
-	mu    sync.Mutex
-	peers map[trackerServer.InfoHash]map[netip.AddrPort]peerEntry
+func NewDBTracker(peers *PeerService) *DBTracker {
+	return &DBTracker{peers: peers}
 }
 
-func NewMemTracker() *MemTracker {
-	return &MemTracker{
-		peers: make(map[trackerServer.InfoHash]map[netip.AddrPort]peerEntry),
+func NewDBTrackerFromDB(db *sql.DB) *DBTracker {
+	return NewDBTracker(NewPeerService(NewPeerRepository(db)))
+}
+
+func (t *DBTracker) TrackAnnounce(ctx context.Context, req udp.AnnounceRequest, addr netip.AddrPort) error {
+	u, ok := userFromContext(ctx)
+	if !ok {
+		return fmt.Errorf("missing user in context")
 	}
-}
 
-func (t *MemTracker) TrackAnnounce(_ context.Context, req udp.AnnounceRequest, addr netip.AddrPort) error {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-	if t.peers[req.InfoHash] == nil {
-		t.peers[req.InfoHash] = make(map[netip.AddrPort]peerEntry)
-	}
 	if req.Event == tracker.Stopped {
-		delete(t.peers[req.InfoHash], addr)
-	} else {
-		t.peers[req.InfoHash][addr] = peerEntry{
-			left:     req.Left,
-			lastSeen: time.Now(),
-		}
+		return t.peers.Delete(ctx, req.InfoHash, u.ID)
 	}
-	return nil
+
+	return t.peers.Announce(ctx, PeerAnnouncement{
+		UserID:     u.ID,
+		Addr:       addr.Addr(),
+		Port:       req.Port,
+		InfoHash:   req.InfoHash,
+		PeerID:     req.PeerId,
+		Downloaded: req.Downloaded,
+		Uploaded:   req.Uploaded,
+		Left:       req.Left,
+	})
 }
 
-func (t *MemTracker) GetPeers(_ context.Context, infoHash trackerServer.InfoHash, opts trackerServer.GetPeersOpts, _ netip.AddrPort) trackerServer.ServerAnnounceResult {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-	swarm := t.peers[infoHash]
-	var peers []trackerServer.PeerInfo
-	var seeders, leechers int32
-	for addr, entry := range swarm {
-		if entry.left == 0 {
-			seeders++
-		} else {
-			leechers++
-		}
-		if opts.MaxCount.Ok && uint(len(peers)) >= opts.MaxCount.Value {
-			continue
-		}
-		peers = append(peers, trackerServer.PeerInfo{AnnounceAddr: addr})
+func (t *DBTracker) GetPeers(ctx context.Context, infoHash trackerServer.InfoHash, opts trackerServer.GetPeersOpts, requester netip.AddrPort) trackerServer.ServerAnnounceResult {
+	var maxCount uint
+	if opts.MaxCount.Ok {
+		maxCount = opts.MaxCount.Value
 	}
+
+	addrs, err := t.peers.ListAddrByInfoHash(ctx, infoHash, requester, maxCount)
+	if err != nil {
+		return trackerServer.ServerAnnounceResult{Err: err}
+	}
+
+	seeders, leechers, err := t.peers.CountByInfoHash(ctx, infoHash)
+	if err != nil {
+		return trackerServer.ServerAnnounceResult{Err: err}
+	}
+
+	result := make([]trackerServer.PeerInfo, len(addrs))
+	for i, addr := range addrs {
+		result[i] = trackerServer.PeerInfo{AnnounceAddr: addr}
+	}
+
 	return trackerServer.ServerAnnounceResult{
-		Peers:    peers,
+		Peers:    result,
 		Seeders:  generics.Some(seeders),
 		Leechers: generics.Some(leechers),
 		Interval: generics.Some[int32](1800),
 	}
 }
 
-func (t *MemTracker) Scrape(_ context.Context, infoHashes []trackerServer.InfoHash) ([]udp.ScrapeInfohashResult, error) {
-	t.mu.Lock()
-	defer t.mu.Unlock()
+func (t *DBTracker) Scrape(ctx context.Context, infoHashes []trackerServer.InfoHash) ([]udp.ScrapeInfohashResult, error) {
+	counts, err := t.peers.CountByInfoHashes(ctx, infoHashes)
+	if err != nil {
+		return nil, err
+	}
+
 	results := make([]udp.ScrapeInfohashResult, len(infoHashes))
 	for i, ih := range infoHashes {
-		for _, entry := range t.peers[ih] {
-			if entry.left == 0 {
-				results[i].Seeders++
-			} else {
-				results[i].Leechers++
-			}
+		if c, ok := counts[ih]; ok {
+			results[i].Seeders = c.Seeders
+			results[i].Leechers = c.Leechers
 		}
 	}
 	return results, nil

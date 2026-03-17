@@ -4,19 +4,23 @@
 	"name": "Go",
 	// Or use a Dockerfile or Docker Compose file. More info: https://containers.dev/guide/dockerfile
 	// "image": "mcr.microsoft.com/devcontainers/go:2-1.25-trixie"
+	"workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
+
 	"build": {
 		"dockerfile": "Containerfile"
 	},
-
 	// Features to add to the dev container. More info: https://containers.dev/features.
-	// "features": {},
+	"features": {
+    	"ghcr.io/devcontainers/features/docker-in-docker:2": {
+			"moby": false
+		}
+	},
 
 	// Use 'forwardPorts' to make a list of ports inside the container available locally.
 	"forwardPorts": [8080],
 
 	// Use 'postCreateCommand' to run commands after the container is created.
-	"postCreateCommand": "go install github.com/air-verse/air@latest && go mod download",
-	"postStartCommand": "nohup bash -c 'air &' > nohup.out",
+	"postCreateCommand": ".devcontainer/post_create.sh",
 
 	// Configure tool-specific properties.
 	"customizations": {

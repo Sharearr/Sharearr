@@ -1,0 +1,8 @@
+CREATE TABLE users (
+    id         INTEGER  PRIMARY KEY AUTOINCREMENT,
+    username   TEXT     NOT NULL,
+    email      TEXT     NOT NULL,
+    api_key    TEXT     NOT NULL UNIQUE,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);

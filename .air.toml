@@ -2,8 +2,8 @@ root = "."
 tmp_dir = "tmp"
  
 [build]  
-  cmd = "go build -o ./tmp/main ."
-  entrypoint = ["./tmp/main"]
+  cmd = "go build -tags fts5 -gcflags='all=-N -l' -o ./tmp/main ."
+  entrypoint = ["dlv", "exec", "--headless", "--listen=:2345", "--api-version=2", "--accept-multiclient", "--continue", "./tmp/main"]
   include_ext = ["go", "tpl", "html"]
   exclude_dir = ["tmp", "vendor"]
  

@@ -1,0 +1,4 @@
+DROP TRIGGER IF EXISTS torrents_au;
+DROP TRIGGER IF EXISTS torrents_ad;
+DROP TRIGGER IF EXISTS torrents_ai;
+DROP TABLE IF EXISTS torrents_fts;
