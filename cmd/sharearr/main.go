@@ -13,6 +13,8 @@ import (
 
 	httpTrackerServer "github.com/anacrolix/torrent/tracker/http/server"
 	trackerServer "github.com/anacrolix/torrent/tracker/server"
+
+	"example/main/internal/sharearr"
 )
 
 type config struct {
@@ -38,7 +40,7 @@ func main() {
 
 	flag.Parse()
 
-	db, err := openDB(cfg.db)
+	db, err := sharearr.OpenDB(cfg.db)
 	if err != nil {
 		panic(err)
 	}
@@ -47,7 +49,7 @@ func main() {
 	go func() {
 		ticker := time.NewTicker(10 * time.Minute)
 		defer ticker.Stop()
-		peers := NewPeerServiceFromDB(db)
+		peers := sharearr.NewPeerServiceFromDB(db)
 		for {
 			if err := peers.DeleteStale(context.Background()); err != nil {
 				log.Printf("peer cleanup: %v", err)
@@ -56,24 +58,24 @@ func main() {
 		}
 	}()
 
-	if err := NewUserServiceFromDB(db).Provision(context.Background()); err != nil {
+	if err := sharearr.NewUserServiceFromDB(db).Provision(context.Background()); err != nil {
 		log.Printf("provision user: %v", err)
 	}
 
 	handler := &httpTrackerServer.Handler{
 		Announce: &trackerServer.AnnounceHandler{
-			AnnounceTracker: NewDBTrackerFromDB(db),
+			AnnounceTracker: sharearr.NewDBTrackerFromDB(db),
 		},
 	}
 
 	wrapped := gin.WrapH(handler)
 
 	router := gin.Default()
-	torznab := NewTorznabHandlerFromDB(db)
-	torrents := NewTorrentHandlerFromDB(db)
+	torznab := sharearr.NewTorznabHandlerFromDB(db)
+	torrents := sharearr.NewTorrentHandlerFromDB(db)
 
 	authorized := router.Group("/")
-	authorized.Use(Auth(db))
+	authorized.Use(sharearr.Auth(db))
 	{
 		authorized.GET("announce", wrapped)
 		authorized.GET("announce/:apikey", wrapped)

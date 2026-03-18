@@ -6,7 +6,7 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 COPY . .
-RUN CGO_ENABLED=1 GOOS=linux go build -tags sqlite_fts5 -ldflags="-w -s" -o sharearr .
+RUN CGO_ENABLED=1 GOOS=linux go build -tags sqlite_fts5 -ldflags="-w -s" -o sharearr ./cmd/sharearr
 
 FROM debian:bookworm-slim
 

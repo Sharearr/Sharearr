@@ -1,4 +1,4 @@
-package main
+package integration_test
 
 import (
 	"bytes"
@@ -29,12 +29,12 @@ func NewSonarrContainer(ctx context.Context, networkName string) (*SonarrContain
 		ctx, "lscr.io/linuxserver/sonarr:latest",
 		testcontainers.WithFiles(
 			testcontainers.ContainerFile{
-				HostFilePath:      ".devcontainer/sonarr-config.xml",
+				HostFilePath:      "../.devcontainer/sonarr-config.xml",
 				ContainerFilePath: "/defaults/config.xml",
 				FileMode:          0o664,
 			},
 			testcontainers.ContainerFile{
-				HostFilePath:      ".devcontainer/entrypoint.sh",
+				HostFilePath:      "../.devcontainer/entrypoint.sh",
 				ContainerFilePath: "/entrypoint.sh",
 				FileMode:          0o755,
 			},
@@ -205,13 +205,12 @@ func NewAppContainer(ctx context.Context, networkName string) (*AppContainer, er
 		testcontainers.GenericContainerRequest{
 			ContainerRequest: testcontainers.ContainerRequest{
 				FromDockerfile: testcontainers.FromDockerfile{
-					Context:    ".",
+					Context:    "..",
 					Dockerfile: "Containerfile",
 				},
 				Env: map[string]string{
 					"SHAREARR_EMAIL":   "test@example.com",
 					"SHAREARR_API_KEY": "apikey",
-					"SHAREARR_DB":      "",
 				},
 				Networks:       []string{networkName},
 				NetworkAliases: map[string][]string{networkName: {"sharearr"}},
@@ -227,7 +226,7 @@ func NewAppContainer(ctx context.Context, networkName string) (*AppContainer, er
 	return &AppContainer{Container: ctr}, nil
 }
 
-func (a *AppContainer) UploadTorrent(t *testing.T, ctx context.Context, torrentFile []byte, name string, cat string) torrentResponse {
+func (a *AppContainer) UploadTorrent(t *testing.T, ctx context.Context, torrentFile []byte, name string, cat string) map[string]any {
 	t.Helper()
 	endpoint, err := a.Endpoint(ctx, "http")
 	require.NoError(t, err)
@@ -252,7 +251,7 @@ func (a *AppContainer) UploadTorrent(t *testing.T, ctx context.Context, torrentF
 	require.NoError(t, err)
 	require.Equal(t, http.StatusCreated, resp.StatusCode, "UploadTorrent response: %s", respBody)
 
-	var result torrentResponse
+	var result map[string]any
 	require.NoError(t, json.Unmarshal(respBody, &result))
 	return result
 }

@@ -1,4 +1,4 @@
-package main
+package sharearr
 
 import (
 	"database/sql"
@@ -15,7 +15,7 @@ import (
 //go:embed migrations/*.sql
 var migrationsFS embed.FS
 
-func openDB(path string) (*sql.DB, error) {
+func OpenDB(path string) (*sql.DB, error) {
 	db, err := sql.Open("sqlite3", path)
 	if err != nil {
 		return nil, fmt.Errorf("open db: %w", err)
