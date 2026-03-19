@@ -1,6 +1,6 @@
 CREATE TABLE category_torrents (
-    category_id INTEGER NOT NULL REFERENCES categories (id),
-    torrent_id  INTEGER NOT NULL REFERENCES torrents (id),
+    category_id INTEGER NOT NULL REFERENCES categories (id) ON UPDATE CASCADE ON DELETE CASCADE,
+    torrent_id  INTEGER NOT NULL REFERENCES torrents (id) ON DELETE CASCADE,
     PRIMARY KEY (category_id, torrent_id)
 );
 

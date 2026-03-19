@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/jmoiron/sqlx"
 )
 
 type ctxUserKey struct{}
@@ -27,19 +28,19 @@ func userFromContext(ctx context.Context) (*User, bool) {
 var ErrUserNotFound = errors.New("user not found")
 
 type User struct {
-	ID        int64
-	Username  string
-	Email     string
-	APIKey    string
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	ID        int64     `db:"id"`
+	Username  string    `db:"username"`
+	Email     string    `db:"email"`
+	APIKey    string    `db:"api_key"`
+	CreatedAt time.Time `db:"created_at"`
+	UpdatedAt time.Time `db:"updated_at"`
 }
 
 type UserRepository struct {
-	db *sql.DB
+	db *sqlx.DB
 }
 
-func NewUserRepository(db *sql.DB) *UserRepository {
+func NewUserRepository(db *sqlx.DB) *UserRepository {
 	return &UserRepository{db: db}
 }
 
@@ -58,10 +59,10 @@ func (r *UserRepository) InsertIfEmpty(ctx context.Context, u *User) (bool, erro
 
 func (r *UserRepository) GetByAPIKey(ctx context.Context, apiKey string) (*User, error) {
 	u := &User{}
-	err := r.db.QueryRowContext(ctx,
+	err := r.db.GetContext(ctx, u,
 		`SELECT id, username, email, api_key, created_at, updated_at
 		 FROM users WHERE api_key = ?`, apiKey,
-	).Scan(&u.ID, &u.Username, &u.Email, &u.APIKey, &u.CreatedAt, &u.UpdatedAt)
+	)
 	if err != nil {
 		return nil, fmt.Errorf("get user by api key: %w", err)
 	}
@@ -76,7 +77,7 @@ func NewUserService(repo *UserRepository) *UserService {
 	return &UserService{repo: repo}
 }
 
-func NewUserServiceFromDB(db *sql.DB) *UserService {
+func NewUserServiceFromDB(db *sqlx.DB) *UserService {
 	return NewUserService(NewUserRepository(db))
 }
 
@@ -122,7 +123,7 @@ func (s *UserService) GetByAPIKey(ctx context.Context, apiKey string) (*User, er
 	return u, nil
 }
 
-func Auth(db *sql.DB) gin.HandlerFunc {
+func Auth(db *sqlx.DB) gin.HandlerFunc {
 	service := NewUserServiceFromDB(db)
 	return func(c *gin.Context) {
 		apiKey := c.Param("apikey")

@@ -3,7 +3,6 @@ package sharearr
 import (
 	"bytes"
 	"context"
-	"database/sql"
 	"encoding/xml"
 	"fmt"
 	"log"
@@ -11,8 +10,8 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/anacrolix/torrent/types/infohash"
 	"github.com/gin-gonic/gin"
+	"github.com/jmoiron/sqlx"
 )
 
 const torznabMIME = "application/rss+xml; charset=utf-8"
@@ -90,12 +89,12 @@ type torznabResponse struct {
 }
 
 type TorznabService struct {
-	db       *sql.DB
+	db       *sqlx.DB
 	torrents *TorrentService
 	peers    *PeerService
 }
 
-func NewTorznabService(db *sql.DB, torrents *TorrentService, peers *PeerService) *TorznabService {
+func NewTorznabService(db *sqlx.DB, torrents *TorrentService, peers *PeerService) *TorznabService {
 	return &TorznabService{db: db, torrents: torrents, peers: peers}
 }
 
@@ -105,28 +104,41 @@ func (s *TorznabService) Search(ctx context.Context, p TorznabQuery) ([]TorrentC
 		CategoryIDs: p.Cat,
 		Limit:       p.Limit,
 		Offset:      p.Offset,
-	}
-	if p.TorznabTvQuery != nil {
-		ts.TorrentTvSearch = &TorrentTvSearch{Season: p.Season, Episode: p.Episode}
+		Season:      p.Season,
+		Episode:     p.Episode,
 	}
 	results, err := s.torrents.Search(ctx, ts)
 	if err != nil || !p.Extended || len(results) == 0 {
 		return results, err
 	}
 
-	ids := make([]any, len(results))
-	for i, tc := range results {
-		ids[i] = tc.ID
+	if err := s.Categories(ctx, results); err != nil {
+		return nil, err
 	}
-	rows, err := s.db.QueryContext(ctx,
+	if err := s.PeerCounts(ctx, results); err != nil {
+		return nil, err
+	}
+	return results, nil
+}
+
+func (s *TorznabService) Categories(ctx context.Context, tc []TorrentCategory) error {
+	torrentIDs := make([]int64, len(tc))
+	for i, tc := range tc {
+		torrentIDs[i] = tc.ID
+	}
+	query, args, err := sqlx.In(
 		`SELECT ct.torrent_id, c.id, c.name, c.parent_id, c.created_at, c.updated_at
 		 FROM category_torrents ct
 		 JOIN categories c ON c.id = ct.category_id
-		 WHERE ct.torrent_id IN (`+placeholders(len(ids))+`)`,
-		ids...,
+		 WHERE ct.torrent_id IN (?)`,
+		torrentIDs,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("lookup categories: %w", err)
+		return fmt.Errorf("build category lookup query: %w", err)
+	}
+	rows, err := s.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return fmt.Errorf("lookup categories: %w", err)
 	}
 	defer rows.Close()
 
@@ -135,32 +147,35 @@ func (s *TorznabService) Search(ctx context.Context, p TorznabQuery) ([]TorrentC
 		var torrentID int64
 		var c Category
 		if err := rows.Scan(&torrentID, &c.ID, &c.Name, &c.ParentID, &c.CreatedAt, &c.UpdatedAt); err != nil {
-			return nil, fmt.Errorf("scan category: %w", err)
+			return fmt.Errorf("scan category: %w", err)
 		}
 		catsByTorrent[torrentID] = append(catsByTorrent[torrentID], c)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterate categories: %w", err)
+		return fmt.Errorf("iterate categories: %w", err)
 	}
 
-	for i := range results {
-		results[i].Categories = catsByTorrent[results[i].ID]
+	for i := range tc {
+		tc[i].Categories = catsByTorrent[tc[i].ID]
 	}
+	return nil
+}
 
-	ihs := make([]infohash.T, len(results))
-	for i, tc := range results {
+func (s *TorznabService) PeerCounts(ctx context.Context, tc []TorrentCategory) error {
+	ihs := make([]InfoHash, len(tc))
+	for i, tc := range tc {
 		ihs[i] = tc.InfoHash
 	}
 	peerCounts, err := s.peers.CountByInfoHashes(ctx, ihs)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	for i := range results {
-		if c, ok := peerCounts[results[i].InfoHash]; ok {
-			results[i].PeerCounts = c
+	for i := range tc {
+		if c, ok := peerCounts[tc[i].InfoHash]; ok {
+			tc[i].PeerCounts = c
 		}
 	}
-	return results, nil
+	return nil
 }
 
 type TorznabHandler struct {
@@ -172,7 +187,7 @@ func NewTorznabHandler(service *TorznabService, categories *CategoryService) *To
 	return &TorznabHandler{service: service, categories: categories}
 }
 
-func NewTorznabHandlerFromDB(db *sql.DB) *TorznabHandler {
+func NewTorznabHandlerFromDB(db *sqlx.DB) *TorznabHandler {
 	return NewTorznabHandler(
 		NewTorznabService(db, NewTorrentService(NewTorrentRepository(db)), NewPeerServiceFromDB(db)),
 		NewCategoryServiceFromDB(db),

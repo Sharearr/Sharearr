@@ -2,7 +2,6 @@ package sharearr
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"net/netip"
 
@@ -10,6 +9,7 @@ import (
 	"github.com/anacrolix/torrent/tracker"
 	trackerServer "github.com/anacrolix/torrent/tracker/server"
 	"github.com/anacrolix/torrent/tracker/udp"
+	"github.com/jmoiron/sqlx"
 )
 
 type DBTracker struct {
@@ -20,7 +20,7 @@ func NewDBTracker(peers *PeerService) *DBTracker {
 	return &DBTracker{peers: peers}
 }
 
-func NewDBTrackerFromDB(db *sql.DB) *DBTracker {
+func NewDBTrackerFromDB(db *sqlx.DB) *DBTracker {
 	return NewDBTracker(NewPeerService(NewPeerRepository(db)))
 }
 
@@ -31,15 +31,15 @@ func (t *DBTracker) TrackAnnounce(ctx context.Context, req udp.AnnounceRequest, 
 	}
 
 	if req.Event == tracker.Stopped {
-		return t.peers.Delete(ctx, req.InfoHash, u.ID)
+		return t.peers.Delete(ctx, InfoHash{req.InfoHash}, PeerID(req.PeerId))
 	}
 
 	return t.peers.Announce(ctx, PeerAnnouncement{
 		UserID:     u.ID,
 		Addr:       addr.Addr(),
 		Port:       req.Port,
-		InfoHash:   req.InfoHash,
-		PeerID:     req.PeerId,
+		InfoHash:   InfoHash{req.InfoHash},
+		PeerID:     PeerID(req.PeerId),
 		Downloaded: req.Downloaded,
 		Uploaded:   req.Uploaded,
 		Left:       req.Left,
@@ -52,12 +52,12 @@ func (t *DBTracker) GetPeers(ctx context.Context, infoHash trackerServer.InfoHas
 		maxCount = opts.MaxCount.Value
 	}
 
-	addrs, err := t.peers.ListAddrByInfoHash(ctx, infoHash, requester, maxCount)
+	addrs, err := t.peers.ListAddrByInfoHash(ctx, InfoHash{infoHash}, maxCount)
 	if err != nil {
 		return trackerServer.ServerAnnounceResult{Err: err}
 	}
 
-	seeders, leechers, err := t.peers.CountByInfoHash(ctx, infoHash)
+	seeders, leechers, err := t.peers.CountByInfoHash(ctx, InfoHash{infoHash})
 	if err != nil {
 		return trackerServer.ServerAnnounceResult{Err: err}
 	}
@@ -76,13 +76,17 @@ func (t *DBTracker) GetPeers(ctx context.Context, infoHash trackerServer.InfoHas
 }
 
 func (t *DBTracker) Scrape(ctx context.Context, infoHashes []trackerServer.InfoHash) ([]udp.ScrapeInfohashResult, error) {
-	counts, err := t.peers.CountByInfoHashes(ctx, infoHashes)
+	ihs := make([]InfoHash, len(infoHashes))
+	for i, ih := range infoHashes {
+		ihs[i] = InfoHash{ih}
+	}
+	counts, err := t.peers.CountByInfoHashes(ctx, ihs)
 	if err != nil {
 		return nil, err
 	}
 
 	results := make([]udp.ScrapeInfohashResult, len(infoHashes))
-	for i, ih := range infoHashes {
+	for i, ih := range ihs {
 		if c, ok := counts[ih]; ok {
 			results[i].Seeders = c.Seeders
 			results[i].Leechers = c.Leechers

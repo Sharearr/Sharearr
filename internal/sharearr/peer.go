@@ -2,27 +2,41 @@ package sharearr
 
 import (
 	"context"
-	"database/sql"
+	"database/sql/driver"
 	"fmt"
 	"net/netip"
 	"time"
 
-	"github.com/anacrolix/torrent/types/infohash"
+	"github.com/jmoiron/sqlx"
 )
+
+type PeerID [20]byte
+
+func (p *PeerID) Scan(src any) error {
+	b, ok := src.([]byte)
+	if !ok {
+		return fmt.Errorf("peerid: expected []byte, got %T", src)
+	}
+	copy(p[:], b)
+	return nil
+}
+
+func (p PeerID) Value() (driver.Value, error) {
+	return p[:], nil
+}
 
 type PeerAnnouncement struct {
 	UserID     int64
 	Addr       netip.Addr
 	Port       uint16
-	InfoHash   infohash.T
-	PeerID     [20]byte
+	InfoHash   InfoHash
+	PeerID     PeerID
 	Downloaded int64
 	Uploaded   int64
 	Left       int64
 }
 
 type Peer struct {
-	ID         int64
 	TorrentID  int64
 	UserID     int64
 	PeerID     [20]byte
@@ -36,10 +50,10 @@ type Peer struct {
 }
 
 type PeerRepository struct {
-	db *sql.DB
+	db *sqlx.DB
 }
 
-func NewPeerRepository(db *sql.DB) *PeerRepository {
+func NewPeerRepository(db *sqlx.DB) *PeerRepository {
 	return &PeerRepository{db: db}
 }
 
@@ -47,15 +61,15 @@ func (r *PeerRepository) Announce(ctx context.Context, pa PeerAnnouncement) erro
 	_, err := r.db.ExecContext(ctx, `
 		INSERT INTO peers (torrent_id, user_id, peer_id, ip, port, downloaded, uploaded, left)
 		SELECT id, ?, ?, ?, ?, ?, ?, ? FROM torrents WHERE info_hash = ?
-		ON CONFLICT (torrent_id, user_id) DO UPDATE SET
-			peer_id    = excluded.peer_id,
+		ON CONFLICT (torrent_id, peer_id) DO UPDATE SET
+			user_id    = excluded.user_id,
 			ip         = excluded.ip,
 			port       = excluded.port,
 			downloaded = excluded.downloaded,
 			uploaded   = excluded.uploaded,
 			left       = excluded.left,
 			updated_at = CURRENT_TIMESTAMP`,
-		pa.UserID, pa.PeerID[:], pa.Addr.String(), pa.Port, pa.Downloaded, pa.Uploaded, pa.Left, pa.InfoHash.String(),
+		pa.UserID, pa.PeerID, pa.Addr.String(), pa.Port, pa.Downloaded, pa.Uploaded, pa.Left, pa.InfoHash,
 	)
 	if err != nil {
 		return fmt.Errorf("announce peer: %w", err)
@@ -74,12 +88,12 @@ func (r *PeerRepository) DeleteStale(ctx context.Context, olderThan time.Duratio
 	return nil
 }
 
-func (r *PeerRepository) Delete(ctx context.Context, infoHash infohash.T, userID int64) error {
+func (r *PeerRepository) Delete(ctx context.Context, infoHash InfoHash, peerID PeerID) error {
 	_, err := r.db.ExecContext(ctx, `
 		DELETE FROM peers
 		WHERE torrent_id = (SELECT id FROM torrents WHERE info_hash = ?)
-		  AND user_id = ?`,
-		infoHash.String(), userID,
+		  AND peer_id = ?`,
+		infoHash, peerID,
 	)
 	if err != nil {
 		return fmt.Errorf("delete peer: %w", err)
@@ -87,14 +101,13 @@ func (r *PeerRepository) Delete(ctx context.Context, infoHash infohash.T, userID
 	return nil
 }
 
-func (r *PeerRepository) ListAddrByInfoHash(ctx context.Context, infoHash infohash.T, requester netip.AddrPort, maxCount uint) ([]netip.AddrPort, error) {
+func (r *PeerRepository) ListAddrByInfoHash(ctx context.Context, infoHash InfoHash, maxCount uint) ([]netip.AddrPort, error) {
 	query := `
 		SELECT p.ip, p.port
 		FROM peers p
 		JOIN torrents t ON t.id = p.torrent_id
-		WHERE t.info_hash = ?
-		  AND NOT (p.ip = ? AND p.port = ?)`
-	args := []any{infoHash.String(), requester.Addr().String(), int(requester.Port())}
+		WHERE t.info_hash = ?`
+	args := []any{infoHash}
 	if maxCount > 0 {
 		query += ` LIMIT ?`
 		args = append(args, maxCount)
@@ -130,7 +143,7 @@ type PeerCounts struct {
 	Leechers int32
 }
 
-func (r *PeerRepository) CountByInfoHash(ctx context.Context, infoHash infohash.T) (seeders, leechers int32, err error) {
+func (r *PeerRepository) CountByInfoHash(ctx context.Context, infoHash InfoHash) (seeders, leechers int32, err error) {
 	err = r.db.QueryRowContext(ctx, `
 		SELECT
 			COUNT(CASE WHEN p.left = 0 THEN 1 END),
@@ -138,7 +151,7 @@ func (r *PeerRepository) CountByInfoHash(ctx context.Context, infoHash infohash.
 		FROM peers p
 		JOIN torrents t ON t.id = p.torrent_id
 		WHERE t.info_hash = ?`,
-		infoHash.String(),
+		infoHash,
 	).Scan(&seeders, &leechers)
 	if err != nil {
 		return 0, 0, fmt.Errorf("count peers: %w", err)
@@ -146,34 +159,34 @@ func (r *PeerRepository) CountByInfoHash(ctx context.Context, infoHash infohash.
 	return seeders, leechers, nil
 }
 
-func (r *PeerRepository) CountByInfoHashes(ctx context.Context, infoHashes []infohash.T) (map[infohash.T]PeerCounts, error) {
-	args := make([]any, len(infoHashes))
-	for i, ih := range infoHashes {
-		args[i] = ih.String()
-	}
-	rows, err := r.db.QueryContext(ctx, `
+func (r *PeerRepository) CountByInfoHashes(ctx context.Context, infoHashes []InfoHash) (map[InfoHash]PeerCounts, error) {
+	query, args, err := sqlx.In(`
 		SELECT t.info_hash,
 			COUNT(CASE WHEN p.left = 0 THEN 1 END),
 			COUNT(CASE WHEN p.left > 0 THEN 1 END)
 		FROM peers p
 		JOIN torrents t ON t.id = p.torrent_id
-		WHERE t.info_hash IN (`+placeholders(len(infoHashes))+`)
+		WHERE t.info_hash IN (?)
 		GROUP BY t.info_hash`,
-		args...,
+		infoHashes,
 	)
+	if err != nil {
+		return nil, fmt.Errorf("build count by info hashes query: %w", err)
+	}
+	rows, err := r.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("count peers by info hashes: %w", err)
 	}
 	defer rows.Close()
 
-	counts := make(map[infohash.T]PeerCounts, len(infoHashes))
+	counts := make(map[InfoHash]PeerCounts, len(infoHashes))
 	for rows.Next() {
-		var ihStr string
+		var ih InfoHash
 		var c PeerCounts
-		if err := rows.Scan(&ihStr, &c.Seeders, &c.Leechers); err != nil {
+		if err := rows.Scan(&ih, &c.Seeders, &c.Leechers); err != nil {
 			return nil, fmt.Errorf("scan peer counts: %w", err)
 		}
-		counts[infohash.FromHexString(ihStr)] = c
+		counts[ih] = c
 	}
 	return counts, rows.Err()
 }
@@ -186,7 +199,7 @@ func NewPeerService(repo *PeerRepository) *PeerService {
 	return &PeerService{repo: repo}
 }
 
-func NewPeerServiceFromDB(db *sql.DB) *PeerService {
+func NewPeerServiceFromDB(db *sqlx.DB) *PeerService {
 	return &PeerService{repo: NewPeerRepository(db)}
 }
 
@@ -194,22 +207,22 @@ func (s *PeerService) Announce(ctx context.Context, pa PeerAnnouncement) error {
 	return s.repo.Announce(ctx, pa)
 }
 
-func (s *PeerService) Delete(ctx context.Context, infoHash infohash.T, userID int64) error {
-	return s.repo.Delete(ctx, infoHash, userID)
+func (s *PeerService) Delete(ctx context.Context, infoHash InfoHash, peerID PeerID) error {
+	return s.repo.Delete(ctx, infoHash, peerID)
 }
 
 func (s *PeerService) DeleteStale(ctx context.Context) error {
 	return s.repo.DeleteStale(ctx, 1*time.Hour)
 }
 
-func (s *PeerService) CountByInfoHash(ctx context.Context, infoHash infohash.T) (seeders, leechers int32, err error) {
+func (s *PeerService) CountByInfoHash(ctx context.Context, infoHash InfoHash) (seeders, leechers int32, err error) {
 	return s.repo.CountByInfoHash(ctx, infoHash)
 }
 
-func (s *PeerService) CountByInfoHashes(ctx context.Context, infoHashes []infohash.T) (map[infohash.T]PeerCounts, error) {
+func (s *PeerService) CountByInfoHashes(ctx context.Context, infoHashes []InfoHash) (map[InfoHash]PeerCounts, error) {
 	return s.repo.CountByInfoHashes(ctx, infoHashes)
 }
 
-func (s *PeerService) ListAddrByInfoHash(ctx context.Context, infoHash infohash.T, requester netip.AddrPort, maxCount uint) ([]netip.AddrPort, error) {
-	return s.repo.ListAddrByInfoHash(ctx, infoHash, requester, maxCount)
+func (s *PeerService) ListAddrByInfoHash(ctx context.Context, infoHash InfoHash, maxCount uint) ([]netip.AddrPort, error) {
+	return s.repo.ListAddrByInfoHash(ctx, infoHash, maxCount)
 }

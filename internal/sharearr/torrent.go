@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
+	"database/sql/driver"
 	"errors"
 	"fmt"
 	"io"
@@ -16,22 +17,42 @@ import (
 	"github.com/anacrolix/torrent/metainfo"
 	"github.com/anacrolix/torrent/types/infohash"
 	"github.com/gin-gonic/gin"
+	"github.com/jmoiron/sqlx"
 	sqlite3 "github.com/mattn/go-sqlite3"
 )
+
+type InfoHash struct{ infohash.T }
+
+func (ih *InfoHash) Scan(src any) error {
+	s, ok := src.(string)
+	if !ok {
+		return fmt.Errorf("infohash: expected string, got %T", src)
+	}
+	ih.T = infohash.FromHexString(s)
+	return nil
+}
+
+func (ih InfoHash) Value() (driver.Value, error) {
+	return ih.T.String(), nil
+}
+
+func (ih InfoHash) String() string {
+	return ih.T.String()
+}
 
 var ErrTorrentNotFound = errors.New("torrent not found")
 var ErrTorrentAlreadyExists = errors.New("torrent already exists")
 var ErrInvalidTorrent = errors.New("invalid torrent")
 
 type Torrent struct {
-	ID        int64
-	InfoHash  infohash.T
-	Name      string
-	SizeBytes int64
-	File      []byte
-	UserID    int64
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	ID        int64         `db:"id"`
+	InfoHash  InfoHash      `db:"info_hash"`
+	Name      string        `db:"name"`
+	SizeBytes int64         `db:"size_bytes"`
+	File      []byte        `db:"file"`
+	UserID    sql.NullInt64 `db:"user_id"`
+	CreatedAt time.Time     `db:"created_at"`
+	UpdatedAt time.Time     `db:"updated_at"`
 }
 
 type torrentResponse struct {
@@ -53,15 +74,15 @@ func newTorrentResponse(t *Torrent) torrentResponse {
 }
 
 type TorrentRepository struct {
-	db *sql.DB
+	db *sqlx.DB
 }
 
-func NewTorrentRepository(db *sql.DB) *TorrentRepository {
+func NewTorrentRepository(db *sqlx.DB) *TorrentRepository {
 	return &TorrentRepository{db: db}
 }
 
 func (r *TorrentRepository) Create(ctx context.Context, t *Torrent, categoryIDs []int64) error {
-	tx, err := r.db.BeginTx(ctx, nil)
+	tx, err := r.db.BeginTxx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin tx: %w", err)
 	}
@@ -70,7 +91,7 @@ func (r *TorrentRepository) Create(ctx context.Context, t *Torrent, categoryIDs 
 	res, err := tx.ExecContext(ctx,
 		`INSERT INTO torrents (info_hash, name, size_bytes, file, user_id)
 		 VALUES (?, ?, ?, ?, ?)`,
-		t.InfoHash.String(), t.Name, t.SizeBytes, t.File, t.UserID,
+		t.InfoHash, t.Name, t.SizeBytes, t.File, t.UserID,
 	)
 	if err != nil {
 		var sqliteErr sqlite3.Error
@@ -84,72 +105,59 @@ func (r *TorrentRepository) Create(ctx context.Context, t *Torrent, categoryIDs 
 		return fmt.Errorf("last insert id: %w", err)
 	}
 
-	for _, catID := range categoryIDs {
-		if _, err := tx.ExecContext(ctx,
-			`INSERT INTO category_torrents (category_id, torrent_id) VALUES (?, ?)`,
-			catID, t.ID,
-		); err != nil {
-			return fmt.Errorf("link category %d: %w", catID, err)
+	if len(categoryIDs) > 0 {
+		q, args, err := sqlx.In(
+			`INSERT INTO category_torrents (category_id, torrent_id)
+			 SELECT id, ? FROM categories WHERE id IN (?)`,
+			t.ID, categoryIDs,
+		)
+		if err != nil {
+			return fmt.Errorf("build category link query: %w", err)
+		}
+		if _, err := tx.ExecContext(ctx, q, args...); err != nil {
+			return fmt.Errorf("link categories: %w", err)
 		}
 	}
 
 	return tx.Commit()
 }
 
-func (r *TorrentRepository) GetByInfoHash(ctx context.Context, ih infohash.T) (*Torrent, error) {
+func (r *TorrentRepository) GetByInfoHash(ctx context.Context, ih InfoHash) (*Torrent, error) {
 	t := &Torrent{}
-	var ihStr string
-	err := r.db.QueryRowContext(ctx,
+	err := r.db.GetContext(ctx, t,
 		`SELECT id, info_hash, name, size_bytes, file, user_id, created_at, updated_at
-		 FROM torrents WHERE info_hash = ?`, ih.String(),
-	).Scan(&t.ID, &ihStr, &t.Name, &t.SizeBytes, &t.File, &t.UserID, &t.CreatedAt, &t.UpdatedAt)
+		 FROM torrents WHERE info_hash = ?`, ih,
+	)
 	if err != nil {
 		return nil, fmt.Errorf("get torrent by info_hash: %w", err)
 	}
-	t.InfoHash = infohash.FromHexString(ihStr)
 	return t, nil
 }
 
 func (r *TorrentRepository) GetByID(ctx context.Context, id int64) (*Torrent, error) {
 	t := &Torrent{}
-	var ihStr string
-	err := r.db.QueryRowContext(ctx,
+	err := r.db.GetContext(ctx, t,
 		`SELECT id, info_hash, name, size_bytes, file, user_id, created_at, updated_at
 		 FROM torrents WHERE id = ?`, id,
-	).Scan(&t.ID, &ihStr, &t.Name, &t.SizeBytes, &t.File, &t.UserID, &t.CreatedAt, &t.UpdatedAt)
+	)
 	if err != nil {
 		return nil, fmt.Errorf("get torrent by id: %w", err)
 	}
-	t.InfoHash = infohash.FromHexString(ihStr)
 	return t, nil
 }
 
 type TorrentSearch struct {
 	Query       string
-	CategoryIDs []int
+	CategoryIDs []int64
 	Extended    bool
 	Limit       int
 	Offset      int
-	*TorrentTvSearch
+	Season      string
+	Episode     string
 }
 
-type TorrentTvSearch struct {
-	Season  string
-	Episode string
-}
-
-func (ts *TorrentTvSearch) normalizedTVParams() string {
-	s := normalizeTVParam(ts.Season, "S")
-	e := normalizeTVParam(ts.Episode, "E")
-	switch {
-	case s != "" && e != "":
-		return s + e
-	case s != "":
-		return s
-	case e != "":
-		return e
-	}
-	return ""
+func normalizedTVParams(season, episode string) string {
+	return normalizeTVParam(season, "S") + normalizeTVParam(episode, "E")
 }
 
 func normalizeTVParam(val, prefix string) string {
@@ -163,47 +171,39 @@ func normalizeTVParam(val, prefix string) string {
 
 func (r *TorrentRepository) Search(ctx context.Context, ts TorrentSearch) ([]TorrentCategory, error) {
 	var args []any
-	builder := strings.Builder{}
+	var where []string
 
-	builder.WriteString("SELECT t.id, t.info_hash, t.name, t.size_bytes, t.user_id, t.created_at, t.updated_at ")
-	catSubquery := "t.id IN (SELECT torrent_id FROM category_torrents WHERE category_id IN (" + placeholders(len(ts.CategoryIDs)) + "))"
+	from := "FROM torrents t "
+	if ts.Query != "" || ts.Season != "" || ts.Episode != "" {
+		from = "FROM torrents_fts JOIN torrents t ON t.id = torrents_fts.rowid "
+		term := strings.TrimSpace(ts.Query + " " + normalizedTVParams(ts.Season, ts.Episode))
+		where = append(where, "torrents_fts MATCH ?")
+		args = append(args, term)
+	}
 
-	if ts.Query != "" || ts.TorrentTvSearch != nil {
-		builder.WriteString(
-			`FROM torrents_fts
-		 	 JOIN torrents t ON t.id = torrents_fts.rowid `,
-		)
-		var terms []string
-		terms = append(terms, ts.Query)
-		if ts.TorrentTvSearch != nil {
-			terms = append(terms, ts.normalizedTVParams())
-		}
-		builder.WriteString("WHERE torrents_fts MATCH ? ")
-		args = append(args, strings.Join(terms, " "))
-		if len(ts.CategoryIDs) > 0 {
-			builder.WriteString("AND " + catSubquery + " ")
-			for _, id := range ts.CategoryIDs {
-				args = append(args, id)
-			}
-		}
-	} else {
-		builder.WriteString("FROM torrents t ")
-		if len(ts.CategoryIDs) > 0 {
-			builder.WriteString("WHERE " + catSubquery + " ")
-			for _, id := range ts.CategoryIDs {
-				args = append(args, id)
-			}
-		}
+	if len(ts.CategoryIDs) > 0 {
+		where = append(where, "t.id IN (SELECT torrent_id FROM category_torrents WHERE category_id IN (?))")
+		args = append(args, ts.CategoryIDs)
+	}
+
+	q := "SELECT t.id, t.info_hash, t.name, t.size_bytes, t.user_id, t.created_at, t.updated_at " + from
+	if len(where) > 0 {
+		q += "WHERE " + strings.Join(where, " AND ") + " "
 	}
 	if ts.Limit > 0 {
-		builder.WriteString("LIMIT ? ")
+		q += "LIMIT ? "
 		args = append(args, ts.Limit)
 	}
 	if ts.Offset > 0 {
-		builder.WriteString("OFFSET ? ")
+		q += "OFFSET ? "
 		args = append(args, ts.Offset)
 	}
-	rows, err := r.db.QueryContext(ctx, builder.String(), args...)
+
+	q, args, err := sqlx.In(q, args...)
+	if err != nil {
+		return nil, fmt.Errorf("build search query: %w", err)
+	}
+	rows, err := r.db.QueryxContext(ctx, q, args...)
 	if err != nil {
 		return nil, fmt.Errorf("search torrents: %w", err)
 	}
@@ -212,11 +212,9 @@ func (r *TorrentRepository) Search(ctx context.Context, ts TorrentSearch) ([]Tor
 	var results []TorrentCategory
 	for rows.Next() {
 		var tc TorrentCategory
-		var ihStr string
-		if err := rows.Scan(&tc.ID, &ihStr, &tc.Name, &tc.SizeBytes, &tc.UserID, &tc.CreatedAt, &tc.UpdatedAt); err != nil {
+		if err := rows.StructScan(&tc); err != nil {
 			return nil, fmt.Errorf("scan torrent: %w", err)
 		}
-		tc.InfoHash = infohash.FromHexString(ihStr)
 		results = append(results, tc)
 	}
 	if err := rows.Err(); err != nil {
@@ -260,11 +258,11 @@ func (s *TorrentService) Create(ctx context.Context, userID int64, categoryIDs [
 	}
 
 	t := &Torrent{
-		InfoHash:  mi.HashInfoBytes(),
+		InfoHash:  InfoHash{mi.HashInfoBytes()},
 		Name:      info.BestName(),
 		SizeBytes: info.TotalLength(),
 		File:      buf.Bytes(),
-		UserID:    userID,
+		UserID:    sql.NullInt64{Int64: userID, Valid: true},
 	}
 
 	if err := s.repo.Create(ctx, t, categoryIDs); err != nil {
@@ -273,7 +271,7 @@ func (s *TorrentService) Create(ctx context.Context, userID int64, categoryIDs [
 	return t, nil
 }
 
-func (s *TorrentService) GetByInfoHash(ctx context.Context, infoHash infohash.T) (*Torrent, error) {
+func (s *TorrentService) GetByInfoHash(ctx context.Context, infoHash InfoHash) (*Torrent, error) {
 	t, err := s.repo.GetByInfoHash(ctx, infoHash)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrTorrentNotFound
@@ -302,7 +300,7 @@ func NewTorrentHandler(torrent *TorrentService, category *CategoryService) *Torr
 	return &TorrentHandler{torrent: torrent, category: category}
 }
 
-func NewTorrentHandlerFromDB(db *sql.DB) *TorrentHandler {
+func NewTorrentHandlerFromDB(db *sqlx.DB) *TorrentHandler {
 	return NewTorrentHandler(NewTorrentService(NewTorrentRepository(db)), NewCategoryServiceFromDB(db))
 }
 

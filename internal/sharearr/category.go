@@ -6,34 +6,36 @@ import (
 	"errors"
 	"fmt"
 	"time"
+
+	"github.com/jmoiron/sqlx"
 )
 
 var ErrCategoryNotFound = errors.New("category not found")
 
 type Category struct {
-	ID        int64
-	Name      string
-	ParentID  sql.NullInt64
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	ID        int64         `db:"id"`
+	Name      string        `db:"name"`
+	ParentID  sql.NullInt64 `db:"parent_id"`
+	CreatedAt time.Time     `db:"created_at"`
+	UpdatedAt time.Time     `db:"updated_at"`
 }
 
 type CategoryRepository struct {
-	db *sql.DB
+	db *sqlx.DB
 }
 
-func NewCategoryRepository(db *sql.DB) *CategoryRepository {
+func NewCategoryRepository(db *sqlx.DB) *CategoryRepository {
 	return &CategoryRepository{db: db}
 }
 
 func (r *CategoryRepository) GetRootByName(ctx context.Context, name string) (*Category, error) {
 	c := &Category{}
-	err := r.db.QueryRowContext(ctx,
+	err := r.db.GetContext(ctx, c,
 		`SELECT id, name, parent_id, created_at, updated_at
 		 FROM categories
 		 WHERE lower(name) = lower(?) AND parent_id IS NULL`,
 		name,
-	).Scan(&c.ID, &c.Name, &c.ParentID, &c.CreatedAt, &c.UpdatedAt)
+	)
 	if err != nil {
 		return nil, fmt.Errorf("get root category by name: %w", err)
 	}
@@ -48,7 +50,7 @@ func NewCategoryService(repo *CategoryRepository) *CategoryService {
 	return &CategoryService{repo: repo}
 }
 
-func NewCategoryServiceFromDB(db *sql.DB) *CategoryService {
+func NewCategoryServiceFromDB(db *sqlx.DB) *CategoryService {
 	return NewCategoryService(NewCategoryRepository(db))
 }
 
@@ -58,23 +60,14 @@ type CategoryTree struct {
 }
 
 func (r *CategoryRepository) ListAll(ctx context.Context) ([]Category, error) {
-	rows, err := r.db.QueryContext(ctx,
+	var cats []Category
+	err := r.db.SelectContext(ctx, &cats,
 		`SELECT id, name, parent_id, created_at, updated_at FROM categories ORDER BY id`,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("list categories: %w", err)
 	}
-	defer rows.Close()
-
-	var cats []Category
-	for rows.Next() {
-		var c Category
-		if err := rows.Scan(&c.ID, &c.Name, &c.ParentID, &c.CreatedAt, &c.UpdatedAt); err != nil {
-			return nil, fmt.Errorf("scan category: %w", err)
-		}
-		cats = append(cats, c)
-	}
-	return cats, rows.Err()
+	return cats, nil
 }
 
 func (s *CategoryService) ListTree(ctx context.Context) ([]CategoryTree, error) {
@@ -111,29 +104,18 @@ func (s *CategoryService) GetRootByName(ctx context.Context, name string) (*Cate
 }
 
 func (r *CategoryRepository) ListByIDs(ctx context.Context, ids []int64) ([]Category, error) {
-	args := make([]any, len(ids))
-	for i, id := range ids {
-		args[i] = id
-	}
-	rows, err := r.db.QueryContext(ctx,
-		`SELECT id, name, parent_id, created_at, updated_at
-		 FROM categories WHERE id IN (`+placeholders(len(ids))+`)`,
-		args...,
+	query, args, err := sqlx.In(
+		`SELECT id, name, parent_id, created_at, updated_at FROM categories WHERE id IN (?)`,
+		ids,
 	)
 	if err != nil {
+		return nil, fmt.Errorf("build list by ids query: %w", err)
+	}
+	var cats []Category
+	if err := r.db.SelectContext(ctx, &cats, query, args...); err != nil {
 		return nil, fmt.Errorf("list categories by ids: %w", err)
 	}
-	defer rows.Close()
-
-	var cats []Category
-	for rows.Next() {
-		var c Category
-		if err := rows.Scan(&c.ID, &c.Name, &c.ParentID, &c.CreatedAt, &c.UpdatedAt); err != nil {
-			return nil, fmt.Errorf("scan category: %w", err)
-		}
-		cats = append(cats, c)
-	}
-	return cats, rows.Err()
+	return cats, nil
 }
 
 func (s *CategoryService) ListByIDs(ctx context.Context, ids []int64) ([]Category, error) {

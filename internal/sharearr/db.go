@@ -4,24 +4,24 @@ import (
 	"database/sql"
 	"embed"
 	"fmt"
-	"strings"
 
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/sqlite3"
 	"github.com/golang-migrate/migrate/v4/source/iofs"
+	"github.com/jmoiron/sqlx"
 	_ "github.com/mattn/go-sqlite3"
 )
 
 //go:embed migrations/*.sql
 var migrationsFS embed.FS
 
-func OpenDB(path string) (*sql.DB, error) {
-	db, err := sql.Open("sqlite3", path)
+func OpenDB(path string) (*sqlx.DB, error) {
+	db, err := sqlx.Open("sqlite3", fmt.Sprintf("%s?foreign_keys=true&journal_mode=WAL", path))
 	if err != nil {
 		return nil, fmt.Errorf("open db: %w", err)
 	}
 
-	if err := runMigrations(db); err != nil {
+	if err := runMigrations(db.DB); err != nil {
 		db.Close()
 		return nil, err
 	}
@@ -29,9 +29,6 @@ func OpenDB(path string) (*sql.DB, error) {
 	return db, nil
 }
 
-func placeholders(n int) string {
-	return strings.TrimSuffix(strings.Repeat("?,", n), ",")
-}
 
 func runMigrations(db *sql.DB) error {
 	src, err := iofs.New(migrationsFS, "migrations")
