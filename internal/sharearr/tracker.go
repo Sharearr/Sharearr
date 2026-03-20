@@ -7,8 +7,10 @@ import (
 
 	"github.com/anacrolix/generics"
 	"github.com/anacrolix/torrent/tracker"
+	httpTrackerServer "github.com/anacrolix/torrent/tracker/http/server"
 	trackerServer "github.com/anacrolix/torrent/tracker/server"
 	"github.com/anacrolix/torrent/tracker/udp"
+	"github.com/gin-gonic/gin"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -93,4 +95,24 @@ func (t *DBTracker) Scrape(ctx context.Context, infoHashes []trackerServer.InfoH
 		}
 	}
 	return results, nil
+}
+
+type TrackerHandler struct {
+	Announce gin.HandlerFunc
+}
+
+func NewTrackerHandler(announce gin.HandlerFunc) *TrackerHandler {
+	return &TrackerHandler{Announce: announce}
+}
+
+func NewTrackerHandlerFromDB(db *sqlx.DB) *TrackerHandler {
+	return NewTrackerHandler(
+		gin.WrapH(
+			&httpTrackerServer.Handler{
+				Announce: &trackerServer.AnnounceHandler{
+					AnnounceTracker: NewDBTrackerFromDB(db),
+				},
+			},
+		),
+	)
 }

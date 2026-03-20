@@ -128,8 +128,6 @@ func (s *SonarrContainer) AddIndexer(t *testing.T, ctx context.Context, name str
 		switch field["name"] {
 		case "baseUrl":
 			field["value"] = fmt.Sprintf("http://%s:%d", host, port)
-		case "apiPath":
-			field["value"] = "/torznab"
 		case "apiKey":
 			field["value"] = "apikey"
 		case "categories":
@@ -215,7 +213,7 @@ func NewAppContainer(ctx context.Context, networkName string) (*AppContainer, er
 				Networks:       []string{networkName},
 				NetworkAliases: map[string][]string{networkName: {"sharearr"}},
 				ExposedPorts:   []string{"8787/tcp"},
-				WaitingFor:     wait.ForHTTP("/torznab?t=caps&apikey=apikey").WithPort("8787/tcp"),
+				WaitingFor:     wait.ForHTTP("/api?t=caps&apikey=apikey").WithPort("8787/tcp"),
 			},
 			Started: true,
 		},
@@ -239,7 +237,7 @@ func (a *AppContainer) UploadTorrent(t *testing.T, ctx context.Context, torrentF
 	require.NoError(t, err)
 	w.Close()
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, fmt.Sprintf("%s/torrent/%s?apikey=apikey", endpoint, cat), &body)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, fmt.Sprintf("%s/api/v1/torrent/%s?apikey=apikey", endpoint, cat), &body)
 	require.NoError(t, err)
 	req.Header.Set("Content-Type", w.FormDataContentType())
 

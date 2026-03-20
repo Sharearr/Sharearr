@@ -11,9 +11,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 
-	httpTrackerServer "github.com/anacrolix/torrent/tracker/http/server"
-	trackerServer "github.com/anacrolix/torrent/tracker/server"
-
 	"example/main/internal/sharearr"
 )
 
@@ -62,27 +59,26 @@ func main() {
 		log.Printf("provision user: %v", err)
 	}
 
-	handler := &httpTrackerServer.Handler{
-		Announce: &trackerServer.AnnounceHandler{
-			AnnounceTracker: sharearr.NewDBTrackerFromDB(db),
-		},
-	}
-
-	wrapped := gin.WrapH(handler)
-
 	router := gin.Default()
+	tracker := sharearr.NewTrackerHandlerFromDB(db)
 	torznab := sharearr.NewTorznabHandlerFromDB(db)
 	torrents := sharearr.NewTorrentHandlerFromDB(db)
 
-	authorized := router.Group("/")
-	authorized.Use(sharearr.Auth(db))
+	root := router.Group("/")
+	root.Use(sharearr.Auth(db))
 	{
-		authorized.GET("announce", wrapped)
-		authorized.GET("announce/:apikey", wrapped)
-		authorized.GET("torznab", torznab.Handle)
-		authorized.GET("torrent/:id/download", torrents.Download)
-		authorized.POST("torrent", torrents.Upload)
-		authorized.POST("torrent/:cat", torrents.Upload)
+		root.GET("announce", tracker.Announce)
+		root.GET("announce/:apikey", tracker.Announce)
+		api := root.Group("api")
+		{
+			api.GET("", torznab.Handle)
+			v1 := api.Group("v1")
+			{
+				v1.GET("torrent/:id/download", torrents.Download)
+				v1.POST("torrent", torrents.Upload)
+				v1.POST("torrent/:cat", torrents.Upload)
+			}
+		}
 	}
 	router.Run(fmt.Sprintf(":%s", cfg.port))
 }
