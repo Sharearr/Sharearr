@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/anacrolix/torrent/bencode"
 	"github.com/anacrolix/torrent/metainfo"
@@ -169,6 +170,12 @@ func normalizeTVParam(val, prefix string) string {
 	return fmt.Sprintf("%s%02d", prefix, n)
 }
 
+func sanitizeFtsQuery(query string) string {
+	return strings.Join(strings.FieldsFunc(query, func(r rune) bool {
+		return !unicode.IsLetter(r) && !unicode.IsDigit(r)
+	}), " ")
+}
+
 func (r *TorrentRepository) Search(ctx context.Context, ts TorrentSearch) ([]TorrentCategory, error) {
 	var args []any
 	var where []string
@@ -176,7 +183,7 @@ func (r *TorrentRepository) Search(ctx context.Context, ts TorrentSearch) ([]Tor
 	from := "FROM torrents t "
 	if ts.Query != "" || ts.Season != "" || ts.Episode != "" {
 		from = "FROM torrents_fts JOIN torrents t ON t.id = torrents_fts.rowid "
-		term := strings.TrimSpace(ts.Query + " " + normalizedTVParams(ts.Season, ts.Episode))
+		term := sanitizeFtsQuery(ts.Query) + " " + normalizedTVParams(ts.Season, ts.Episode)
 		where = append(where, "torrents_fts MATCH ?")
 		args = append(args, term)
 	}
