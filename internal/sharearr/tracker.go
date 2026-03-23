@@ -38,7 +38,7 @@ func (t *DBTracker) TrackAnnounce(ctx context.Context, req udp.AnnounceRequest, 
 
 	return t.peers.Announce(ctx, PeerAnnouncement{
 		UserID:     u.ID,
-		Addr:       addr.Addr(),
+		IP:         addr.Addr().String(),
 		Port:       req.Port,
 		InfoHash:   InfoHash{req.InfoHash},
 		PeerID:     PeerID(req.PeerId),

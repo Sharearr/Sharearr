@@ -1,4 +1,6 @@
-#!/bin/bash
+#!/bin/bash -e
+dir=$(dirname "$2")
+[ ! -d "$dir" ] && mkdir -p "$dir"
 cp "$1" "$2"
-chmod 777 /downloads
+[ -d /downloads ] && chmod 777 /downloads
 exec /init

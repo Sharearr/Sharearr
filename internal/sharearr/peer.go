@@ -26,27 +26,15 @@ func (p PeerID) Value() (driver.Value, error) {
 }
 
 type PeerAnnouncement struct {
-	UserID     int64
-	Addr       netip.Addr
-	Port       uint16
-	InfoHash   InfoHash
-	PeerID     PeerID
-	Downloaded int64
-	Uploaded   int64
-	Left       int64
-}
-
-type Peer struct {
-	TorrentID  int64
-	UserID     int64
-	PeerID     [20]byte
-	IP         string
-	Port       int
-	Downloaded int64
-	Uploaded   int64
-	Left       int64
-	CreatedAt  time.Time
-	UpdatedAt  time.Time
+	UserID     int64     `db:"user_id"`
+	IP         string    `db:"ip"`
+	Port       uint16    `db:"port"`
+	InfoHash   InfoHash  `db:"info_hash"`
+	PeerID     PeerID    `db:"peer_id"`
+	Downloaded int64     `db:"downloaded"`
+	Uploaded   int64     `db:"uploaded"`
+	Left       int64     `db:"left"`
+	UpdatedAt  time.Time `db:"updated_at"`
 }
 
 type PeerRepository struct {
@@ -57,10 +45,11 @@ func NewPeerRepository(db *sqlx.DB) *PeerRepository {
 	return &PeerRepository{db: db}
 }
 
-func (r *PeerRepository) Announce(ctx context.Context, pa PeerAnnouncement) error {
-	_, err := r.db.ExecContext(ctx, `
+func (r *PeerRepository) Announce(ctx context.Context, pa PeerAnnouncement, currentTime time.Time) error {
+	pa.UpdatedAt = currentTime
+	_, err := r.db.NamedExecContext(ctx, `
 		INSERT INTO peers (torrent_id, user_id, peer_id, ip, port, downloaded, uploaded, left)
-		SELECT id, ?, ?, ?, ?, ?, ?, ? FROM torrents WHERE info_hash = ?
+		SELECT id, :user_id, :peer_id, :ip, :port, :downloaded, :uploaded, :left FROM torrents WHERE info_hash = :info_hash
 		ON CONFLICT (torrent_id, peer_id) DO UPDATE SET
 			user_id    = excluded.user_id,
 			ip         = excluded.ip,
@@ -68,8 +57,8 @@ func (r *PeerRepository) Announce(ctx context.Context, pa PeerAnnouncement) erro
 			downloaded = excluded.downloaded,
 			uploaded   = excluded.uploaded,
 			left       = excluded.left,
-			updated_at = CURRENT_TIMESTAMP`,
-		pa.UserID, pa.PeerID, pa.Addr.String(), pa.Port, pa.Downloaded, pa.Uploaded, pa.Left, pa.InfoHash,
+			updated_at = :updated_at`,
+		pa,
 	)
 	if err != nil {
 		return fmt.Errorf("announce peer: %w", err)
@@ -77,11 +66,8 @@ func (r *PeerRepository) Announce(ctx context.Context, pa PeerAnnouncement) erro
 	return nil
 }
 
-func (r *PeerRepository) DeleteStale(ctx context.Context, olderThan time.Duration) error {
-	_, err := r.db.ExecContext(ctx,
-		`DELETE FROM peers WHERE updated_at < datetime('now', ?)`,
-		fmt.Sprintf("-%.0f seconds", olderThan.Seconds()),
-	)
+func (r *PeerRepository) DeleteStale(ctx context.Context, currentTime time.Time, olderThan time.Duration) error {
+	_, err := r.db.ExecContext(ctx, `DELETE FROM peers WHERE updated_at < ?`, currentTime.Add(olderThan))
 	if err != nil {
 		return fmt.Errorf("delete stale peers: %w", err)
 	}
@@ -204,7 +190,7 @@ func NewPeerServiceFromDB(db *sqlx.DB) *PeerService {
 }
 
 func (s *PeerService) Announce(ctx context.Context, pa PeerAnnouncement) error {
-	return s.repo.Announce(ctx, pa)
+	return s.repo.Announce(ctx, pa, time.Now())
 }
 
 func (s *PeerService) Delete(ctx context.Context, infoHash InfoHash, peerID PeerID) error {
@@ -212,7 +198,7 @@ func (s *PeerService) Delete(ctx context.Context, infoHash InfoHash, peerID Peer
 }
 
 func (s *PeerService) DeleteStale(ctx context.Context) error {
-	return s.repo.DeleteStale(ctx, 1*time.Hour)
+	return s.repo.DeleteStale(ctx, time.Now(), -1*time.Hour)
 }
 
 func (s *PeerService) CountByInfoHash(ctx context.Context, infoHash InfoHash) (seeders, leechers int32, err error) {
