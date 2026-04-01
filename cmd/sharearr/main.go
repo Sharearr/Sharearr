@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"flag"
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -14,30 +14,19 @@ import (
 	"example/main/internal/sharearr"
 )
 
-type config struct {
-	port string
-	db   string
-}
-
 func main() {
 	_ = godotenv.Load()
 
-	var cfg config
-
-	defaultPort := os.Getenv("SHAREARR_PORT")
-	if defaultPort == "" {
-		defaultPort = "8787"
+	cfg, err := sharearr.LoadConfig(os.Args[1:])
+	if errors.Is(err, sharearr.ErrHelp) {
+		os.Exit(0)
 	}
-	defaultDb, present := os.LookupEnv("SHAREARR_DB")
-	if !present {
-		defaultDb = "sharearr.db"
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
 	}
-	flag.StringVar(&cfg.port, "port", defaultPort, "http port")
-	flag.StringVar(&cfg.db, "db", defaultDb, "SQLite connection")
 
-	flag.Parse()
-
-	db, err := sharearr.OpenDB(cfg.db)
+	db, err := sharearr.OpenDB(cfg.DB)
 	if err != nil {
 		panic(err)
 	}
@@ -55,8 +44,8 @@ func main() {
 		}
 	}()
 
-	if err := sharearr.NewUserServiceFromDB(db).Provision(context.Background()); err != nil {
-		log.Printf("provision user: %v", err)
+	if err := sharearr.NewUserServiceFromDB(db).Init(context.Background(), cfg.Init.User); err != nil {
+		log.Printf("init user: %v", err)
 	}
 
 	router := gin.Default()
@@ -80,5 +69,5 @@ func main() {
 			}
 		}
 	}
-	router.Run(fmt.Sprintf(":%s", cfg.port))
+	router.Run(fmt.Sprintf(":%d", cfg.Port))
 }

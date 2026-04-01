@@ -33,3 +33,4 @@ go.work.sum
 
 tmp
 *.db*
+*.toml

@@ -2,8 +2,8 @@ root = "."
 tmp_dir = "tmp"
 
 [build]
-  cmd = "go build -tags fts5 -gcflags='all=-N -l' -o ./tmp/main ./cmd/sharearr"
-  entrypoint = ["dlv", "exec", "--headless", "--listen=:2345", "--api-version=2", "--accept-multiclient", "--continue", "./tmp/main"]
+  cmd = "go build -tags sqlite_fts5,dev -gcflags='all=-N -l' -o ./tmp/sharearr ./cmd/sharearr"
+  entrypoint = ["dlv", "exec", "--headless", "--listen=:2345", "--api-version=2", "--accept-multiclient", "--continue", "./tmp/sharearr"]
   include_ext = ["go", "tpl", "html"]
   exclude_dir = ["tmp", "vendor"]
 

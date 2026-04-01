@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"os"
 	"strings"
 	"time"
 
@@ -81,27 +80,24 @@ func NewUserServiceFromDB(db *sqlx.DB) *UserService {
 	return NewUserService(NewUserRepository(db))
 }
 
-func (s *UserService) Provision(ctx context.Context) error {
-	email := os.Getenv("SHAREARR_EMAIL")
-	if email == "" {
+func (s *UserService) Init(ctx context.Context, cfg UserConfig) error {
+	if cfg.Email == "" {
 		return nil
 	}
 
-	username := os.Getenv("SHAREARR_USERNAME")
-	if username == "" {
-		username, _, _ = strings.Cut(email, "@")
+	if cfg.Username == "" {
+		cfg.Username, _, _ = strings.Cut(cfg.Email, "@")
 	}
 
-	apiKey := os.Getenv("SHAREARR_API_KEY")
-	if apiKey == "" {
+	if cfg.APIKey == "" {
 		b := make([]byte, 16)
 		if _, err := rand.Read(b); err != nil {
 			return fmt.Errorf("generate api key: %w", err)
 		}
-		apiKey = fmt.Sprintf("%x", b)
+		cfg.APIKey = fmt.Sprintf("%x", b)
 	}
 
-	u := &User{Username: username, Email: email, APIKey: apiKey}
+	u := &User{Username: cfg.Username, Email: cfg.Email, APIKey: cfg.APIKey}
 	inserted, err := s.repo.InsertIfEmpty(ctx, u)
 	if err != nil {
 		return err
