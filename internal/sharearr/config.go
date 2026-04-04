@@ -33,7 +33,7 @@ type InitConfig struct {
 type UserConfig struct {
 	Email    string `koanf:"email"    toml:"-"`
 	Username string `koanf:"username" toml:"-"`
-	APIKey   string `koanf:"api_key"  toml:"-"`
+	APIKey   string `koanf:"apikey"   toml:"-"`
 }
 
 const defaultPort = 8787
@@ -54,7 +54,7 @@ func LoadConfig(args []string) (*Config, error) {
 	flags.String("db", defaultDBPath, "SQLite DB path")
 	flags.String("init.user.email", "", "Email for the initial user")
 	flags.String("init.user.username", "", "Username for the initial user")
-	flags.String("init.user.api_key", "", "API key for the initial user")
+	flags.String("init.user.apikey", "", "API key for the initial user")
 	if err := flags.Parse(args); err != nil {
 		if errors.Is(err, pflag.ErrHelp) {
 			return nil, ErrHelp

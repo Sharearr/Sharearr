@@ -273,7 +273,7 @@ func NewAppContainer(ctx context.Context, networkName string) (*AppContainer, er
 				},
 				Env: map[string]string{
 					"SHAREARR_INIT__USER__EMAIL":   "test@example.com",
-					"SHAREARR_INIT__USER__API_KEY": "apikey",
+					"SHAREARR_INIT__USER__APIKEY":  "apikey",
 				},
 				Networks:       []string{networkName},
 				NetworkAliases: map[string][]string{networkName: {"sharearr"}},
