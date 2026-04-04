@@ -326,6 +326,7 @@ func (a *AppContainer) DownloadTorrent(t *testing.T, ctx context.Context, id int
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet,
 		fmt.Sprintf("%s/api/v1/torrent/%d/download?apikey=apikey", endpoint, id), nil)
 	require.NoError(t, err)
+	req.Host = "sharearr:8787"
 	resp, err := http.DefaultClient.Do(req)
 	require.NoError(t, err)
 	defer resp.Body.Close()
@@ -337,7 +338,8 @@ func (a *AppContainer) DownloadTorrent(t *testing.T, ctx context.Context, id int
 
 type announceResp struct {
 	Interval int    `bencode:"interval"`
-	Peers    string `bencode:"peers"` // compact: 6 bytes per IPv4 peer
+	Peers    string `bencode:"peers"`  // compact: 6 bytes per IPv4 peer
+	Peers6   string `bencode:"peers6"` // compact: 18 bytes per IPv6 peer
 }
 
 func (a *AppContainer) Announce(t *testing.T, ctx context.Context, infoHashHex, peerID string, port int, left int64) announceResp {
@@ -478,6 +480,6 @@ func TestAppAnnounce(t *testing.T) {
 
 	require.Eventually(t, func() bool {
 		ar := env.App.Announce(t, ctx, infoHashHex, "-TC1000-123456789012", 51414, 0)
-		return len(ar.Peers)/6 > 1
+		return len(ar.Peers)/6+len(ar.Peers6)/18 > 1
 	}, 30*time.Second, 2*time.Second, "qbittorrent did not announce")
 }
