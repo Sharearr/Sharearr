@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
+	"log/slog"
 	"os"
 	"time"
 
@@ -25,6 +25,7 @@ func main() {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
+	logMiddleware := sharearr.SetupLogger(cfg.Log)
 
 	db, err := sharearr.OpenDB(cfg.DB)
 	if err != nil {
@@ -37,18 +38,22 @@ func main() {
 		defer ticker.Stop()
 		peers := sharearr.NewPeerServiceFromDB(db)
 		for {
+			slog.Debug("Deleting stale peers")
 			if err := peers.DeleteStale(context.Background()); err != nil {
-				log.Printf("peer cleanup: %v", err)
+				slog.Error("Deleting stale peers failed", "error", err)
 			}
 			<-ticker.C
 		}
 	}()
 
 	if err := sharearr.NewUserServiceFromDB(db).Init(context.Background(), cfg.Init.User); err != nil {
-		log.Printf("init user: %v", err)
+		panic(err)
 	}
 
-	router := gin.Default()
+	router := gin.New()
+	router.Use(logMiddleware)
+	router.Use(gin.Recovery())
+
 	tracker := sharearr.NewTrackerHandlerFromDB(db)
 	torznab := sharearr.NewTorznabHandlerFromDB(db)
 	torrents := sharearr.NewTorrentHandlerFromDB(db)

@@ -5,11 +5,11 @@ import (
 	"context"
 	"encoding/xml"
 	"fmt"
-	"log"
 	"net/http"
 	"text/template"
 	"time"
 
+	"github.com/gin-contrib/slog"
 	"github.com/gin-gonic/gin"
 	"github.com/jmoiron/sqlx"
 )
@@ -218,7 +218,7 @@ func (h *TorznabHandler) caps(c *gin.Context) {
 	}
 	c.Header("Content-Type", torznabMIME)
 	if err := capsTmpl.Execute(c.Writer, tree); err != nil {
-		log.Printf("torznab: render caps: %v", err)
+		slog.Get(c).Error("Torznab caps render failed", "type", "caps", "error", err)
 	}
 }
 
@@ -248,13 +248,15 @@ func (h *TorznabHandler) search(c *gin.Context, p TorznabQuery) {
 		items[i] = newTorznabItem(t, base)
 	}
 
+	c.Set("count", len(items))
+
 	h.renderResponse(c, torznabResponse{Items: items, Extended: p.Extended}, p.Type)
 }
 
 func (h *TorznabHandler) renderResponse(c *gin.Context, resp torznabResponse, logCtx string) {
 	c.Header("Content-Type", torznabMIME)
 	if err := searchTmpl.Execute(c.Writer, resp); err != nil {
-		log.Printf("torznab: render %s: %v", logCtx, err)
+		slog.Get(c).Error("Render response failed", "type", logCtx, "error", err)
 	}
 }
 

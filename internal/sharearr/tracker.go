@@ -3,6 +3,7 @@ package sharearr
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net/netip"
 
 	"github.com/anacrolix/generics"
@@ -63,6 +64,7 @@ func (t *DBTracker) GetPeers(ctx context.Context, infoHash trackerServer.InfoHas
 	if err != nil {
 		return trackerServer.ServerAnnounceResult{Err: err}
 	}
+	slog.Debug("GetPeers", "infoHash", infoHash.String(), "seeders", seeders, "leechers", leechers, "maxCount", maxCount, "ip", requester.Addr().String(), "port", requester.Port())
 
 	result := make([]trackerServer.PeerInfo, len(addrs))
 	for i, addr := range addrs {

@@ -19,9 +19,11 @@ import (
 )
 
 type Config struct {
-	Port int        `koanf:"port"    toml:"port"`
-	DB   string     `koanf:"db" toml:"db"`
-	Init InitConfig `koanf:"init"    toml:"-"`
+	Port  int        `koanf:"port"  toml:"port"`
+	DB    string     `koanf:"db"    toml:"db"`
+	Debug bool       `koanf:"debug" toml:"-"`
+	Log   LogConfig  `koanf:"log"   toml:"log"`
+	Init  InitConfig `koanf:"init"  toml:"-"`
 }
 
 // InitConfig is excluded from the config file — values come from env vars or
@@ -36,6 +38,11 @@ type UserConfig struct {
 	APIKey   string `koanf:"apikey"   toml:"-"`
 }
 
+type LogConfig struct {
+	Level string `koanf:"level" toml:"level"`
+	File  string `koanf:"file"  toml:"file"`
+}
+
 const defaultPort = 8787
 
 var ErrHelp = errors.New("help requested")
@@ -43,6 +50,7 @@ var ErrHelp = errors.New("help requested")
 func LoadConfig(args []string) (*Config, error) {
 	defaultConfigPath := filepath.Join(defaultConfigDir, "sharearr.toml")
 	defaultDBPath := filepath.Join(defaultDataDir, "sharearr.db")
+	defaultLogPath := filepath.Join(defaultLogDir, "sharearr.log")
 
 	flags := pflag.NewFlagSet("sharearr", pflag.ContinueOnError)
 	flags.Usage = func() {
@@ -52,6 +60,9 @@ func LoadConfig(args []string) (*Config, error) {
 	flags.StringP("config", "c", defaultConfigPath, "Path to config file")
 	flags.IntP("port", "p", defaultPort, "HTTP listen port")
 	flags.String("db", defaultDBPath, "SQLite DB path")
+	flags.Bool("debug", defaultDebugEnabled, "Enable debug")
+	flags.String("log-level", defaultLogLevel, "Log level")
+	flags.StringP("log-file", "l", defaultLogPath, "Log file path")
 	flags.StringP("init-user-email", "e", "", "Email for the initial user")
 	flags.StringP("init-user-username", "u", "", "Username for the initial user")
 	flags.StringP("init-user-apikey", "k", "", "API key for the initial user")
@@ -65,8 +76,11 @@ func LoadConfig(args []string) (*Config, error) {
 	k := koanf.New(".")
 
 	if err := k.Load(confmap.Provider(map[string]any{
-		"port": defaultPort,
-		"db":   defaultDBPath,
+		"port":      defaultPort,
+		"db":        defaultDBPath,
+		"debug":     defaultDebugEnabled,
+		"log.level": defaultLogLevel,
+		"log.file":  defaultLogPath,
 	}, "."), nil); err != nil {
 		return nil, fmt.Errorf("load defaults: %w", err)
 	}
