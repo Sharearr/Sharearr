@@ -49,12 +49,12 @@ func LoadConfig(args []string) (*Config, error) {
 		fmt.Fprint(os.Stderr, "Usage of sharearr:\n")
 		flags.PrintDefaults()
 	}
-	flags.String("config", defaultConfigPath, "Path to config file")
-	flags.Int("port", defaultPort, "HTTP listen port")
+	flags.StringP("config", "c", defaultConfigPath, "Path to config file")
+	flags.IntP("port", "p", defaultPort, "HTTP listen port")
 	flags.String("db", defaultDBPath, "SQLite DB path")
-	flags.String("init.user.email", "", "Email for the initial user")
-	flags.String("init.user.username", "", "Username for the initial user")
-	flags.String("init.user.apikey", "", "API key for the initial user")
+	flags.StringP("init-user-email", "e", "", "Email for the initial user")
+	flags.StringP("init-user-username", "u", "", "Username for the initial user")
+	flags.StringP("init-user-apikey", "k", "", "API key for the initial user")
 	if err := flags.Parse(args); err != nil {
 		if errors.Is(err, pflag.ErrHelp) {
 			return nil, ErrHelp
@@ -95,7 +95,7 @@ func LoadConfig(args []string) (*Config, error) {
 	}
 
 	cliParser := func(k string, v string) (string, any) {
-		return strings.ReplaceAll(k, "-", "_"), v
+		return strings.ReplaceAll(k, "-", "."), v
 	}
 	if err := k.Load(posflag.ProviderWithValue(flags, ".", k, cliParser), nil); err != nil {
 		return nil, fmt.Errorf("load flags: %w", err)
