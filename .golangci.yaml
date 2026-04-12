@@ -1,0 +1,32 @@
+version: "2"
+linters:
+  # Default set of linters.
+  # The value can be:
+  # - `standard`: the "Default" linters https://golangci-lint.run/docs/linters/#all-linters
+  # - `all`: enables all linters by default.
+  # - `none`: disables all linters by default.
+  # - `fast`: enables only linters considered as "fast" (`golangci-lint help linters --json | jq '[ .[] | select(.fast==true) ] | map(.name)'`).
+  # Default: standard
+  default: standard
+  enable:
+    - bodyclose       # unclosed HTTP response bodies
+    - contextcheck    # context.Context misuse
+    - errname         # error type naming (ErrFoo)
+    - errorlint       # unwrapped errors break errors.Is/As
+    - exhaustive      # missing switch/map cases
+    - gocognit        # cognitive complexity
+    - gosec           # security issues
+    - nestif          # deeply nested ifs
+    - noctx           # HTTP requests without context
+    - prealloc        # slice preallocation hints
+    - unconvert       # unnecessary type conversions
+    - unparam         # unused function parameters
+  settings:
+    gocognit:
+      min-complexity: 20
+    errcheck:
+      check-type-assertions: true
+formatters:
+  # Enable specific formatter.
+  # Default: [] (uses standard Go formatting)
+  enable:

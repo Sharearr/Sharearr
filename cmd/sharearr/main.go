@@ -31,7 +31,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	defer db.Close()
+	defer db.Close() //nolint:errcheck
 
 	go func() {
 		ticker := time.NewTicker(10 * time.Minute)
@@ -74,5 +74,8 @@ func main() {
 			}
 		}
 	}
-	router.Run(fmt.Sprintf(":%d", cfg.Port))
+	if err := router.Run(fmt.Sprintf(":%d", cfg.Port)); err != nil {
+		slog.Error("server error", "error", err)
+		os.Exit(1)
+	}
 }

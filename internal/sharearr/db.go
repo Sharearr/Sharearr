@@ -3,6 +3,7 @@ package sharearr
 import (
 	"database/sql"
 	"embed"
+	"errors"
 	"fmt"
 
 	"github.com/golang-migrate/migrate/v4"
@@ -22,13 +23,12 @@ func OpenDB(path string) (*sqlx.DB, error) {
 	}
 
 	if err := runMigrations(db.DB); err != nil {
-		db.Close()
+		_ = db.Close()
 		return nil, err
 	}
 
 	return db, nil
 }
-
 
 func runMigrations(db *sql.DB) error {
 	src, err := iofs.New(migrationsFS, "migrations")
@@ -46,7 +46,7 @@ func runMigrations(db *sql.DB) error {
 		return fmt.Errorf("migration init: %w", err)
 	}
 
-	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
+	if err := m.Up(); err != nil && !errors.Is(err, migrate.ErrNoChange) {
 		return fmt.Errorf("migration up: %w", err)
 	}
 

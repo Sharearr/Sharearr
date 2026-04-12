@@ -3,7 +3,7 @@ CREATE TABLE peers (
     user_id     INTEGER  NOT NULL REFERENCES users (id) ON DELETE CASCADE,
     peer_id     BLOB     NOT NULL,
     ip          TEXT     NOT NULL,
-    port        INTEGER  NOT NULL,
+    port        INTEGER  NOT NULL CHECK (port >= 0 AND port <= 65535),
     downloaded  INTEGER  NOT NULL DEFAULT 0,
     uploaded    INTEGER  NOT NULL DEFAULT 0,
     left        INTEGER  NOT NULL,

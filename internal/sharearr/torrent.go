@@ -87,7 +87,7 @@ func (r *TorrentRepository) Create(ctx context.Context, t *Torrent, categoryIDs 
 	if err != nil {
 		return fmt.Errorf("begin tx: %w", err)
 	}
-	defer tx.Rollback()
+	defer tx.Rollback() //nolint:errcheck
 
 	res, err := tx.ExecContext(ctx,
 		`INSERT INTO torrents (info_hash, name, size_bytes, file, user_id)
@@ -214,7 +214,7 @@ func (r *TorrentRepository) Search(ctx context.Context, ts TorrentSearch) ([]Tor
 	if err != nil {
 		return nil, fmt.Errorf("search torrents: %w", err)
 	}
-	defer rows.Close()
+	defer rows.Close() //nolint:errcheck
 
 	var results []TorrentCategory
 	for rows.Next() {
@@ -360,7 +360,7 @@ func (h *TorrentHandler) Upload(c *gin.Context) {
 		c.AbortWithStatus(http.StatusInternalServerError)
 		return
 	}
-	defer f.Close()
+	defer f.Close() //nolint:errcheck
 
 	fileBytes, err := io.ReadAll(f)
 	if err != nil {

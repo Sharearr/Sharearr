@@ -93,7 +93,7 @@ func LoadConfig(args []string) (*Config, error) {
 		}
 	}
 
-	if _, err := os.Stat(configPath); err == nil {
+	if _, err := os.Stat(configPath); err == nil { //nolint:gosec
 		if err := k.Load(file.Provider(configPath), koantf.Parser()); err != nil {
 			return nil, fmt.Errorf("load config file: %w", err)
 		}
@@ -120,9 +120,12 @@ func LoadConfig(args []string) (*Config, error) {
 		return nil, fmt.Errorf("unmarshal config: %w", err)
 	}
 
-	if _, err := os.Stat(configPath); errors.Is(err, fs.ErrNotExist) {
+	if _, err := os.Stat(configPath); errors.Is(err, fs.ErrNotExist) { //nolint:gosec
 		if b, err := toml.Marshal(cfg); err == nil {
-			os.WriteFile(configPath, b, 0644)
+			err = os.WriteFile(configPath, b, 0600) //nolint:gosec
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 

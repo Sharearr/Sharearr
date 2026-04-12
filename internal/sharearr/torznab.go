@@ -36,10 +36,12 @@ var capsTmpl = template.Must(template.New("caps").Parse(`<?xml version="1.0" enc
 </caps>`))
 
 var searchTmpl = template.Must(template.New("search").Funcs(template.FuncMap{
-	"xmlescape": func(s string) string {
+	"xmlescape": func(s string) (string, error) {
 		var buf bytes.Buffer
-		xml.EscapeText(&buf, []byte(s))
-		return buf.String()
+		if err := xml.EscapeText(&buf, []byte(s)); err != nil {
+			return "", err
+		}
+		return buf.String(), nil
 	},
 }).Parse(`<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0" xmlns:torznab="http://torznab.com/schemas/2015/feed">
@@ -140,7 +142,7 @@ func (s *TorznabService) Categories(ctx context.Context, tc []TorrentCategory) e
 	if err != nil {
 		return fmt.Errorf("lookup categories: %w", err)
 	}
-	defer rows.Close()
+	defer rows.Close() //nolint:errcheck
 
 	catsByTorrent := make(map[int64][]Category)
 	for rows.Next() {

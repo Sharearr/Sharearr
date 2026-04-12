@@ -103,7 +103,7 @@ func (r *PeerRepository) ListAddrByInfoHash(ctx context.Context, infoHash InfoHa
 	if err != nil {
 		return nil, fmt.Errorf("list peer addrs: %w", err)
 	}
-	defer rows.Close()
+	defer rows.Close() //nolint:errcheck
 
 	var addrs []netip.AddrPort
 	for rows.Next() {
@@ -116,7 +116,7 @@ func (r *PeerRepository) ListAddrByInfoHash(ctx context.Context, infoHash InfoHa
 		if err != nil {
 			continue
 		}
-		addrs = append(addrs, netip.AddrPortFrom(addr, uint16(port)))
+		addrs = append(addrs, netip.AddrPortFrom(addr, uint16(port))) //nolint:gosec // port range enforced by DB CHECK constraint
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("iterate peer addrs: %w", err)
@@ -163,7 +163,7 @@ func (r *PeerRepository) CountByInfoHashes(ctx context.Context, infoHashes []Inf
 	if err != nil {
 		return nil, fmt.Errorf("count peers by info hashes: %w", err)
 	}
-	defer rows.Close()
+	defer rows.Close() //nolint:errcheck
 
 	counts := make(map[InfoHash]PeerCounts, len(infoHashes))
 	for rows.Next() {

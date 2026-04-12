@@ -44,7 +44,7 @@ func openOutput(cfg LogConfig) io.Writer {
 	if cfg.File == "" {
 		return pw
 	}
-	f, err := os.OpenFile(cfg.File, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	f, err := os.OpenFile(cfg.File, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
 	if err != nil {
 		slog.Error("Failed to open log file", "file", cfg.File, "error", err)
 		panic("failed to open log file")
