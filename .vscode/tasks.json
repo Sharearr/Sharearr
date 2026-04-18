@@ -9,6 +9,35 @@
             "problemMatcher": [],
             "presentation": {
                 "reveal": "always",
+                "panel": "shared",
+                "group": "dev"
+            }
+        },
+        {
+            "label": "vite",
+            "type": "shell",
+            "command": "npm run dev",
+            "options": {
+                "cwd": "${workspaceFolder}/web/app"
+            },
+            "isBackground": true,
+            "problemMatcher": [],
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared",
+                "group": "dev"
+            }
+        },
+        {
+            "label": "npm build",
+            "type": "shell",
+            "command": "npm run build",
+            "options": {
+                "cwd": "${workspaceFolder}/web/app"
+            },
+            "problemMatcher": [],
+            "presentation": {
+                "reveal": "always",
                 "panel": "new"
             }
         }

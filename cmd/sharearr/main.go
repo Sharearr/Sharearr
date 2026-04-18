@@ -12,6 +12,7 @@ import (
 	"github.com/joho/godotenv"
 
 	"example/main/internal/sharearr"
+	"example/main/web"
 )
 
 func main() {
@@ -74,6 +75,8 @@ func main() {
 			}
 		}
 	}
+	router.NoRoute(web.StaticHandler())
+
 	if err := router.Run(fmt.Sprintf(":%d", cfg.Port)); err != nil {
 		slog.Error("server error", "error", err)
 		os.Exit(1)

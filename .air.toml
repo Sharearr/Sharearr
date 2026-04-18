@@ -5,7 +5,7 @@ tmp_dir = "tmp"
   cmd = "go build -tags sqlite_fts5,dev -gcflags='all=-N -l' -o ./tmp/sharearr ./cmd/sharearr"
   entrypoint = ["dlv", "exec", "--headless", "--listen=:2345", "--api-version=2", "--accept-multiclient", "--continue", "./tmp/sharearr"]
   include_ext = ["go", "tpl", "html"]
-  exclude_dir = ["tmp", "vendor"]
+  exclude_dir = ["tmp", "vendor", "web/app"]
 
 [log]
   time = true

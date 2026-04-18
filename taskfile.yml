@@ -1,0 +1,64 @@
+version: '3'
+
+tasks:
+  build:
+    desc: Build production binary (includes JS bundle)
+    deps: [web:build]
+    cmds:
+      - task: build:go
+
+  build:go:
+    desc: Build Go binary
+    cmds:
+      - go build -tags sqlite_fts5 -o sharearr ./cmd/sharearr
+
+  build:go:container:
+    desc: Build Go binary with container config
+    cmds:
+      - CGO_ENABLED=1 GOOS=linux go build -tags sqlite_fts5,container -ldflags="-w -s" -o sharearr ./cmd/sharearr
+
+  dev:
+    desc: Run Go (air) and Vite dev servers in parallel
+    deps: [dev:go, dev:vite]
+
+  dev:go:
+    desc: Run Go server with hot reload via air
+    cmds:
+      - air
+
+  dev:vite:
+    desc: Run Vite dev server
+    dir: web/app
+    cmds:
+      - npm run dev
+
+  web:build:
+    desc: Build JS bundle
+    dir: web/app
+    cmds:
+      - npm run build
+
+  test:
+    desc: Run unit tests
+    cmds:
+      - go test -tags sqlite_fts5 ./...
+
+  test:integration:
+    desc: Run integration tests
+    cmds:
+      - go test -tags sqlite_fts5,integration ./...
+
+  lint:
+    desc: Run all linters
+    deps: [lint:go, lint:js]
+
+  lint:go:
+    desc: Run golangci-lint
+    cmds:
+      - golangci-lint run
+
+  lint:js:
+    desc: Run JS linters
+    dir: web/app
+    cmds:
+      - npm run lint
