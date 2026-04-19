@@ -41,9 +41,9 @@
             "options": {
                 "cwd": "${workspaceFolder}/web/app"
             },
-            "problemMatcher": [],
+            "problemMatcher": "$tsc",
             "presentation": {
-                "reveal": "always",
+                "reveal": "silent",
                 "panel": "new"
             }
         }
