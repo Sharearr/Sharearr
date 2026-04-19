@@ -22,6 +22,32 @@ export default createVuetify({
   theme: {
     defaultTheme: window.matchMedia?.('(prefers-color-scheme: dark)')?.matches ? 'dark' : 'light',
     utilities: false,
+    themes: {
+      light: {
+        dark: false,
+        colors: {
+          background:           '#E5E7EB', // gray-200
+          surface:              '#FFFFFF', // white — contrast vs background: ~1.25:1 + elevation shadow
+          'surface-bright':     '#FFFFFF',
+          'surface-light':      '#F3F4F6', // gray-100
+          'surface-variant':    '#F3F4F6', // gray-100
+          'on-surface':         '#111827', // gray-900
+          'on-surface-variant': '#4B5563', // gray-600
+        },
+      },
+      dark: {
+        dark: true,
+        colors: {
+          background:           '#030712', // gray-950
+          surface:              '#111827', // gray-900
+          'surface-bright':     '#374151', // gray-700
+          'surface-light':      '#1F2937', // gray-800
+          'surface-variant':    '#1F2937', // gray-800
+          'on-surface':         '#F9FAFB', // gray-50
+          'on-surface-variant': '#D1D5DB', // gray-300
+        },
+      },
+    },
   },
   display: {
     mobileBreakpoint: 'md',

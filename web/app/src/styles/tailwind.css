@@ -22,14 +22,27 @@
   --breakpoint-xxl: 2560px;
 
   /* Vuetify theme colors as Tailwind utilities */
-  --color-background:      rgb(var(--v-theme-background));
-  --color-surface:         rgb(var(--v-theme-surface));
-  --color-surface-variant: rgb(var(--v-theme-surface-variant));
-  --color-primary:         rgb(var(--v-theme-primary));
-  --color-success:         rgb(var(--v-theme-success));
-  --color-warning:         rgb(var(--v-theme-warning));
-  --color-error:           rgb(var(--v-theme-error));
-  --color-info:            rgb(var(--v-theme-info));
+  --color-background:             rgb(var(--v-theme-background));
+  --color-surface:                rgb(var(--v-theme-surface));
+  --color-surface-bright:         rgb(var(--v-theme-surface-bright));
+  --color-surface-light:          rgb(var(--v-theme-surface-light));
+  --color-surface-variant:        rgb(var(--v-theme-surface-variant));
+  --color-on-surface:             rgb(var(--v-theme-on-surface));
+  --color-on-surface-variant:     rgb(var(--v-theme-on-surface-variant));
+  --color-primary:                rgb(var(--v-theme-primary));
+  --color-primary-darken-1:       rgb(var(--v-theme-primary-darken-1));
+  --color-on-primary:             rgb(var(--v-theme-on-primary));
+  --color-secondary:              rgb(var(--v-theme-secondary));
+  --color-secondary-darken-1:     rgb(var(--v-theme-secondary-darken-1));
+  --color-on-secondary:           rgb(var(--v-theme-on-secondary));
+  --color-success:                rgb(var(--v-theme-success));
+  --color-on-success:             rgb(var(--v-theme-on-success));
+  --color-warning:                rgb(var(--v-theme-warning));
+  --color-on-warning:             rgb(var(--v-theme-on-warning));
+  --color-error:                  rgb(var(--v-theme-error));
+  --color-on-error:               rgb(var(--v-theme-on-error));
+  --color-info:                   rgb(var(--v-theme-info));
+  --color-on-info:                rgb(var(--v-theme-on-info));
 
   /* Typography */
   --font-sans: 'Space Grotesk', sans-serif;

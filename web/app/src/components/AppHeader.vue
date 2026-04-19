@@ -15,55 +15,52 @@ const dark = computed({
 </script>
 
 <template>
-  <header class="flex items-center gap-6 px-6 py-3 dark:bg-gray-900 light:bg-gray-100 dark:text-white light:text-gray-900">
-    <div class="flex-shrink-0 w-8 h-8 rounded dark:bg-gray-700 light:bg-gray-300" aria-label="Logo placeholder" />
+  <v-app-bar flat density="compact">
 
-    <span class="flex-shrink-0 text-xl font-bold tracking-wide font-display">
-      Sharearr
-    </span>
-
-    <div class="flex items-center gap-2 dark:bg-gray-800 light:bg-white rounded-lg px-3 py-1.5 w-80">
-      <MagnifyingGlassIcon class="w-4 h-4 text-gray-400 flex-shrink-0" />
-      <input
+    <template #prepend>
+      <div class="w-8 h-8 rounded bg-surface-variant ml-2 mr-3" aria-label="Logo placeholder" />
+      <span class="text-xl font-bold tracking-wide font-display mr-4">Sharearr</span>
+      <v-text-field
         type="search"
         placeholder="Search..."
-        class="bg-transparent text-sm dark:text-white light:text-gray-900 dark:placeholder-gray-500 light:placeholder-gray-400 outline-none w-full"
+        density="compact"
+        variant="solo-filled"
+        flat
+        hide-details
+        rounded="lg"
+        class="w-80"
+      >
+        <template #prepend-inner>
+          <MagnifyingGlassIcon class="w-4 h-4 mr-1" />
+        </template>
+      </v-text-field>
+    </template>
+
+    <template #append>
+      <v-switch
+        v-model="dark"
+        hide-details
+        inset
+        density="compact"
+        true-icon="$moon"
+        false-icon="$sun"
+        class="mx-2"
       />
-    </div>
 
-    <div class="flex-1" />
+      <v-tooltip text="Support the project" location="bottom">
+        <template #activator="{ props }">
+          <v-btn v-bind="props" icon variant="text" size="small" aria-label="Donate">
+            <HeartIcon class="w-5 h-5" />
+          </v-btn>
+        </template>
+      </v-tooltip>
 
-    <v-switch
-      v-model="dark"
-      hide-details
-      inset
-      density="compact"
-      color="primary"
-      true-icon="$moon"
-      false-icon="$sun"
-      class="flex-shrink-0"
-    />
-
-    <div class="relative group flex-shrink-0">
-      <button
-        class="flex items-center text-gray-400 hover:text-pink-400 transition-colors"
-        aria-label="Donate"
-      >
-        <HeartIcon class="w-5 h-5" />
-      </button>
-      <span class="absolute right-0 top-full mt-1.5 px-2 py-1 text-xs rounded dark:bg-gray-800 light:bg-gray-200 dark:text-gray-200 light:text-gray-700 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-        Support the project
-      </span>
-    </div>
-
-    <div class="flex-shrink-0">
-      <button
-        class="flex items-center text-gray-400 dark:hover:text-white light:hover:text-gray-900 transition-colors"
-        aria-label="User profile"
-      >
+      <v-btn icon variant="text" size="small" aria-label="User profile" class="mr-2">
         <UserCircleIcon class="w-6 h-6" />
-      </button>
-    </div>
+      </v-btn>
+    </template>
 
-  </header>
+  </v-app-bar>
 </template>
+
+<style scoped></style>
