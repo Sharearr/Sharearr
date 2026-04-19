@@ -1,0 +1,48 @@
+@import '@fontsource/roboto/700.css';
+@import '@fontsource/space-grotesk/400.css';
+@import '@fontsource/space-grotesk/500.css';
+@import '@fontsource/space-grotesk/700.css';
+
+@import "tailwindcss/theme" layer(tailwind-theme);
+@import "tailwindcss/preflight" layer(tailwind-reset);
+@import "tailwindcss/utilities" layer(tailwind-utilities);
+
+/* dark/light mode — Vuetify uses .v-theme--dark/.v-theme--light */
+@custom-variant light (&:where(.v-theme--light, .v-theme--light *));
+@custom-variant dark  (&:where(.v-theme--dark,  .v-theme--dark  *));
+
+@theme {
+  /* match Vuetify breakpoints */
+  --breakpoint-*: initial;
+  --breakpoint-xs:  0px;
+  --breakpoint-sm:  600px;
+  --breakpoint-md:  960px;
+  --breakpoint-lg:  1280px;
+  --breakpoint-xl:  1920px;
+  --breakpoint-xxl: 2560px;
+
+  /* Vuetify theme colors as Tailwind utilities */
+  --color-background:      rgb(var(--v-theme-background));
+  --color-surface:         rgb(var(--v-theme-surface));
+  --color-surface-variant: rgb(var(--v-theme-surface-variant));
+  --color-primary:         rgb(var(--v-theme-primary));
+  --color-success:         rgb(var(--v-theme-success));
+  --color-warning:         rgb(var(--v-theme-warning));
+  --color-error:           rgb(var(--v-theme-error));
+  --color-info:            rgb(var(--v-theme-info));
+
+  /* Typography */
+  --font-sans: 'Space Grotesk', sans-serif;
+  --font-display: 'Roboto', sans-serif;
+}
+
+@layer base {
+  body {
+    font-family: var(--font-sans);
+  }
+
+  h1, h2 {
+    font-family: var(--font-display);
+    font-weight: 700;
+  }
+}

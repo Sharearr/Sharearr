@@ -39,7 +39,8 @@
 				"dbaeumer.vscode-eslint",
 				"EditorConfig.EditorConfig",
 				"oxc.oxc-vscode",
-				"esbenp.prettier-vscode"
+				"esbenp.prettier-vscode",
+				"-vscode.typescript-language-features" // conflicts with vue.volar https://stackoverflow.com/a/73710755
 			],
 			"settings": {
 				"ts.tsdk.path": "web/app/node_modules/typescript/lib",
