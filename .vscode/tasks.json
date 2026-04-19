@@ -2,6 +2,12 @@
     "version": "2.0.0",
     "tasks": [
         {
+            "label": "dev",
+            "dependsOn": ["air", "vite"],
+            "problemMatcher": [],
+            "group": "build"
+        },
+        {
             "label": "air",
             "type": "shell",
             "command": "air",
