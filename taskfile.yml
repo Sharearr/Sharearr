@@ -38,6 +38,11 @@ tasks:
     cmds:
       - npm run build
 
+  vet:
+    desc: Run go vet
+    cmds:
+      - go vet -tags sqlite_fts5 ./...
+
   test:
     desc: Run unit tests
     cmds:
