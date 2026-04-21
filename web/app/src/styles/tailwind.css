@@ -22,6 +22,8 @@
   --breakpoint-xxl: 2560px;
 
   /* Vuetify theme colors as Tailwind utilities */
+  --color-icon-sun:               rgb(var(--v-theme-icon-sun));
+  --color-icon-moon:              rgb(var(--v-theme-icon-moon));
   --color-background:             rgb(var(--v-theme-background));
   --color-surface:                rgb(var(--v-theme-surface));
   --color-surface-bright:         rgb(var(--v-theme-surface-bright));

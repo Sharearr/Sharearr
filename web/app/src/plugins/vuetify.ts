@@ -1,22 +1,22 @@
 import '../styles/layers.css'
 import 'vuetify/styles'
-import { h, type Component } from 'vue'
 import { createVuetify } from 'vuetify'
-import type { IconSet, IconProps } from 'vuetify'
-import SunIconColored from '../components/icons/SunIconColored.vue'
-import MoonIconColored from '../components/icons/MoonIconColored.vue'
-
-const heroicons: IconSet = {
-  component: (props: IconProps) => h(props.icon as Component, { 'aria-hidden': 'true' }),
-}
+import { aliases, mdi } from 'vuetify/iconsets/mdi-svg'
+import { mdiMagnify, mdiHeart, mdiAccountCircle, mdiWeatherNight, mdiWeatherSunny } from '@mdi/js'
 
 export default createVuetify({
   icons: {
-    defaultSet: 'heroicons',
-    sets: { heroicons },
+    defaultSet: 'mdi',
     aliases: {
-      sun: SunIconColored,
-      moon: MoonIconColored,
+      ...aliases,
+      search:  mdiMagnify,
+      donate:  mdiHeart,
+      user:    mdiAccountCircle,
+      moon:    mdiWeatherNight,
+      sun:     mdiWeatherSunny,
+    },
+    sets: {
+      mdi,
     },
   },
   theme: {
@@ -26,6 +26,8 @@ export default createVuetify({
       light: {
         dark: false,
         colors: {
+          'icon-sun':           '#fbbf24', // amber-400
+          'icon-moon':          '#818cf8', // indigo-400
           background:           '#E5E7EB', // gray-200
           surface:              '#FFFFFF', // white — contrast vs background: ~1.25:1 + elevation shadow
           'surface-bright':     '#FFFFFF',
@@ -38,6 +40,8 @@ export default createVuetify({
       dark: {
         dark: true,
         colors: {
+          'icon-sun':           '#fbbf24', // amber-400
+          'icon-moon':          '#818cf8', // indigo-400
           background:           '#030712', // gray-950
           surface:              '#111827', // gray-900
           'surface-bright':     '#374151', // gray-700

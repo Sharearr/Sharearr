@@ -1,11 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useTheme } from 'vuetify'
-import {
-  MagnifyingGlassIcon,
-  HeartIcon,
-  UserCircleIcon,
-} from '@heroicons/vue/24/solid'
 
 const theme = useTheme()
 const dark = computed({
@@ -27,13 +22,11 @@ const dark = computed({
         variant="solo-filled"
         flat
         hide-details
+        clearable
         rounded="lg"
         class="w-80"
-      >
-        <template #prepend-inner>
-          <MagnifyingGlassIcon class="w-4 h-4 mr-1" />
-        </template>
-      </v-text-field>
+        prepend-inner-icon="$search"
+      />
     </template>
 
     <template #append>
@@ -49,18 +42,21 @@ const dark = computed({
 
       <v-tooltip text="Support the project" location="bottom">
         <template #activator="{ props }">
-          <v-btn v-bind="props" icon variant="text" size="small" aria-label="Donate">
-            <HeartIcon class="w-5 h-5" />
-          </v-btn>
+          <v-btn v-bind="props" icon="$donate" variant="text" size="small" aria-label="Donate" />
         </template>
       </v-tooltip>
 
-      <v-btn icon variant="text" size="small" aria-label="User profile" class="mr-2">
-        <UserCircleIcon class="w-6 h-6" />
-      </v-btn>
+      <v-btn icon="$user" variant="text" size="small" aria-label="User profile" class="mr-2" />
     </template>
 
   </v-app-bar>
 </template>
 
-<style scoped></style>
+<style scoped>
+:deep(.v-selection-control i.v-icon) {
+  color: rgb(var(--v-theme-icon-sun));
+}
+:deep(.v-selection-control.v-selection-control--dirty i.v-icon) {
+  color: rgb(var(--v-theme-icon-moon));
+}
+</style>
