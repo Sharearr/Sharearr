@@ -14,7 +14,10 @@ const dark = computed({
 
     <template #prepend>
       <div class="w-8 h-8 rounded bg-surface-variant ml-2 mr-3" aria-label="Logo placeholder" />
-      <span class="text-xl font-bold tracking-wide font-display mr-4">Sharearr</span>
+      <v-app-bar-title class="text-xl font-bold tracking-wide font-heading">Sharearr</v-app-bar-title>
+    </template>
+
+    <div class="w-80 ml-4">
       <v-text-field
         type="search"
         placeholder="Search..."
@@ -24,10 +27,11 @@ const dark = computed({
         hide-details
         clearable
         rounded="lg"
-        class="w-80"
         prepend-inner-icon="$search"
       />
-    </template>
+    </div>
+
+    <v-spacer />
 
     <template #append>
       <v-switch
