@@ -47,19 +47,28 @@ func main() {
 		}
 	}()
 
-	if err := sharearr.NewUserServiceFromDB(db).Init(context.Background(), cfg.Init.User); err != nil {
+	userService := sharearr.NewUserServiceFromDB(db)
+
+	if err := userService.Init(context.Background(), cfg.Init.User); err != nil {
 		panic(err)
 	}
+
+	authHandler := sharearr.NewAuthHandler(cfg.SecretKeyBase, userService)
 
 	router := gin.New()
 	router.Use(logMiddleware)
 	router.Use(gin.Recovery())
+	router.Use(authHandler.Session())
 
 	tracker := sharearr.NewTrackerHandlerFromDB(db)
 	torznab := sharearr.NewTorznabHandlerFromDB(db)
 	torrents := sharearr.NewTorrentHandlerFromDB(db)
 
 	root := router.Group("/")
+	auth := root.Group("auth")
+	{
+		auth.POST("login", authHandler.Login)
+	}
 	root.Use(sharearr.Auth(db))
 	{
 		root.GET("announce", tracker.Announce)

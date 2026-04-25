@@ -68,6 +68,18 @@ func (r *UserRepository) GetByAPIKey(ctx context.Context, apiKey string) (*User,
 	return u, nil
 }
 
+func (r *UserRepository) GetByUsername(ctx context.Context, username string) (*User, error) {
+	u := &User{}
+	err := r.db.GetContext(ctx, u,
+		`SELECT id, username, email, api_key, created_at, updated_at
+		 FROM users WHERE username = ?`, username,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("get user by username: %w", err)
+	}
+	return u, nil
+}
+
 type UserService struct {
 	repo *UserRepository
 }
@@ -110,6 +122,17 @@ func (s *UserService) Init(ctx context.Context, cfg UserConfig) error {
 
 func (s *UserService) GetByAPIKey(ctx context.Context, apiKey string) (*User, error) {
 	u, err := s.repo.GetByAPIKey(ctx, apiKey)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, ErrUserNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	return u, nil
+}
+
+func (s *UserService) GetByUsername(ctx context.Context, username string) (*User, error) {
+	u, err := s.repo.GetByUsername(ctx, username)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrUserNotFound
 	}
