@@ -10,7 +10,7 @@
         {
             "label": "air",
             "type": "shell",
-            "command": "air",
+            "command": "task dev:go",
             "isBackground": true,
             "problemMatcher": [],
             "presentation": {
@@ -22,10 +22,7 @@
         {
             "label": "vite",
             "type": "shell",
-            "command": "npm run dev",
-            "options": {
-                "cwd": "${workspaceFolder}/web/app"
-            },
+            "command": "task dev:vite",
             "isBackground": true,
             "problemMatcher": [],
             "presentation": {
@@ -37,10 +34,7 @@
         {
             "label": "npm build",
             "type": "shell",
-            "command": "npm run build",
-            "options": {
-                "cwd": "${workspaceFolder}/web/app"
-            },
+            "command": "task web:build",
             "problemMatcher": "$tsc",
             "presentation": {
                 "reveal": "silent",

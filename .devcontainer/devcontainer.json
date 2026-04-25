@@ -43,12 +43,43 @@
 				"-vscode.typescript-language-features" // conflicts with vue.volar https://stackoverflow.com/a/73710755
 			],
 			"settings": {
+				"explorer.fileNesting.enabled": true,
+				"explorer.fileNesting.patterns": {
+					"tsconfig.json": "tsconfig.*.json, env.d.ts, typed-router.d.ts",
+					"vite.config.*": "jsconfig*, vitest.config.*, cypress.config.*, playwright.config.*",
+					"package.json": "package-lock.json, pnpm*, .yarnrc*, yarn*, .eslint*, eslint*, .oxlint*, oxlint*, .oxfmt*, .prettier*, prettier*, .editorconfig"
+				},
+				"editor.formatOnSave": true,
+				"editor.codeActionsOnSave": {
+					"source.fixAll": "explicit"
+				},
 				"ts.tsdk.path": "web/app/node_modules/typescript/lib",
 				"eslint.workingDirectories": [
 					{ "directory": "web/app", "changeProcessCWD": true }
 				],
 				"prettier.configPath": "web/app/.prettierrc.json",
-				"oxc.configPath": "web/app/.oxlintrc.json"
+				"oxc.configPath": "web/app/.oxlintrc.json",
+				"[go]": {
+					"editor.defaultFormatter": "golang.go"
+				},
+				"[typescript]": {
+					"editor.defaultFormatter": "esbenp.prettier-vscode"
+				},
+				"[vue]": {
+					"editor.defaultFormatter": "esbenp.prettier-vscode"
+				},
+				"[javascript]": {
+					"editor.defaultFormatter": "esbenp.prettier-vscode"
+				},
+				"[css]": {
+					"editor.defaultFormatter": "esbenp.prettier-vscode"
+				},
+				"[scss]": {
+					"editor.defaultFormatter": "esbenp.prettier-vscode"
+				},
+				"[json]": {
+					"editor.defaultFormatter": "esbenp.prettier-vscode"
+				}
 			}
 		}
 	}

@@ -30,13 +30,33 @@ tasks:
     desc: Run Vite dev server
     dir: web/app
     cmds:
-      - npm run dev
+      - npm exec -- vite
 
   web:build:
-    desc: Build JS bundle
+    desc: Build JS bundle (type-check + vite build in parallel)
+    deps:
+      - web:type-check
+      - task: web:build-only
+        vars:
+          CLI_ARGS: '{{.CLI_ARGS}}'
+
+  web:type-check:
+    desc: Run TypeScript type check
     dir: web/app
     cmds:
-      - npm run build
+      - npm exec -- vue-tsc --build
+
+  web:build-only:
+    desc: Run Vite build
+    dir: web/app
+    cmds:
+      - npm exec -- vite build {{.CLI_ARGS}}
+
+  web:preview:
+    desc: Serve the production build locally for testing
+    dir: web/app
+    cmds:
+      - npm exec -- vite preview
 
   vet:
     desc: Run go vet
@@ -66,4 +86,11 @@ tasks:
     desc: Run JS linters
     dir: web/app
     cmds:
-      - npm run lint
+      - npm exec -- oxlint . --fix
+      - npm exec -- eslint . --fix --cache
+
+  format:js:
+    desc: Format JS/TS/Vue files with Prettier
+    dir: web/app
+    cmds:
+      - npm exec -- prettier --write --experimental-cli src/
