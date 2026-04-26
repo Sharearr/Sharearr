@@ -329,7 +329,7 @@ func (h *TorrentHandler) Download(c *gin.Context) {
 	}
 
 	u, _ := userFromContext(c.Request.Context())
-	announceURL := fmt.Sprintf("%s://%s/announce/%s", requestScheme(c), c.Request.Host, u.APIKey)
+	announceURL := fmt.Sprintf("%s://%s/announce/%s", requestScheme(c), c.Request.Host, u.ApiKey)
 
 	mi, err := metainfo.Load(bytes.NewReader(t.File))
 	if err != nil {

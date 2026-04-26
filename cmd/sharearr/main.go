@@ -12,6 +12,7 @@ import (
 	"github.com/joho/godotenv"
 
 	"example/main/internal/sharearr"
+	"example/main/web"
 )
 
 func main() {
@@ -46,19 +47,31 @@ func main() {
 		}
 	}()
 
-	if err := sharearr.NewUserServiceFromDB(db).Init(context.Background(), cfg.Init.User); err != nil {
+	userService := sharearr.NewUserServiceFromDB(db)
+
+	if err := userService.Init(context.Background(), cfg.Init.User); err != nil {
+		panic(err)
+	}
+
+	authHandler, err := sharearr.NewAuthHandler(cfg.SecretKeyBase, userService)
+	if err != nil {
 		panic(err)
 	}
 
 	router := gin.New()
 	router.Use(logMiddleware)
 	router.Use(gin.Recovery())
+	router.Use(authHandler.Session())
 
 	tracker := sharearr.NewTrackerHandlerFromDB(db)
 	torznab := sharearr.NewTorznabHandlerFromDB(db)
 	torrents := sharearr.NewTorrentHandlerFromDB(db)
 
 	root := router.Group("/")
+	auth := root.Group("auth")
+	{
+		auth.POST("login", authHandler.Login)
+	}
 	root.Use(sharearr.Auth(db))
 	{
 		root.GET("announce", tracker.Announce)
@@ -74,6 +87,8 @@ func main() {
 			}
 		}
 	}
+	router.NoRoute(web.StaticHandler())
+
 	if err := router.Run(fmt.Sprintf(":%d", cfg.Port)); err != nil {
 		slog.Error("server error", "error", err)
 		os.Exit(1)

@@ -13,11 +13,18 @@
 	"features": {
     	"ghcr.io/devcontainers/features/docker-in-docker:2": {
 			"moby": false
+		},
+		"ghcr.io/devcontainers/features/node:1": {
+			"version": "lts"
 		}
 	},
 
 	// Use 'forwardPorts' to make a list of ports inside the container available locally.
-	"forwardPorts": [8787],
+	"forwardPorts": [5173, 8787],
+	"portsAttributes": {
+		"5173": { "label": "Vite dev server" },
+		"8787": { "label": "Go server" }
+	},
 
 	// Use 'postCreateCommand' to run commands after the container is created.
 	"postCreateCommand": ".devcontainer/post_create.sh",
@@ -27,8 +34,53 @@
 		"vscode": {
 			"extensions": [
 				"golang.go",
-				"qwtel.sqlite-viewer"
-			]
+				"qwtel.sqlite-viewer",
+				"vue.volar",
+				"dbaeumer.vscode-eslint",
+				"EditorConfig.EditorConfig",
+				"oxc.oxc-vscode",
+				"esbenp.prettier-vscode",
+				"-vscode.typescript-language-features" // conflicts with vue.volar https://stackoverflow.com/a/73710755
+			],
+			"settings": {
+				"explorer.fileNesting.enabled": true,
+				"explorer.fileNesting.patterns": {
+					"tsconfig.json": "tsconfig.*.json, env.d.ts, typed-router.d.ts",
+					"vite.config.*": "jsconfig*, vitest.config.*, cypress.config.*, playwright.config.*",
+					"package.json": "package-lock.json, pnpm*, .yarnrc*, yarn*, .eslint*, eslint*, .oxlint*, oxlint*, .oxfmt*, .prettier*, prettier*, .editorconfig"
+				},
+				"editor.formatOnSave": true,
+				"editor.codeActionsOnSave": {
+					"source.fixAll": "explicit"
+				},
+				"ts.tsdk.path": "web/app/node_modules/typescript/lib",
+				"eslint.workingDirectories": [
+					{ "directory": "web/app", "changeProcessCWD": true }
+				],
+				"prettier.configPath": "web/app/.prettierrc.json",
+				"oxc.configPath": "web/app/.oxlintrc.json",
+				"[go]": {
+					"editor.defaultFormatter": "golang.go"
+				},
+				"[typescript]": {
+					"editor.defaultFormatter": "esbenp.prettier-vscode"
+				},
+				"[vue]": {
+					"editor.defaultFormatter": "esbenp.prettier-vscode"
+				},
+				"[javascript]": {
+					"editor.defaultFormatter": "esbenp.prettier-vscode"
+				},
+				"[css]": {
+					"editor.defaultFormatter": "esbenp.prettier-vscode"
+				},
+				"[scss]": {
+					"editor.defaultFormatter": "esbenp.prettier-vscode"
+				},
+				"[json]": {
+					"editor.defaultFormatter": "esbenp.prettier-vscode"
+				}
+			}
 		}
 	}
 

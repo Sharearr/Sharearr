@@ -7,6 +7,7 @@
 *.dll
 *.so
 *.dylib
+/sharearr
 
 # Test binary, built with `go test -c`
 *.test
@@ -35,3 +36,30 @@ tmp
 *.db*
 *.toml
 *.log*
+
+# Web
+
+*.tsbuildinfo
+
+.eslintcache
+
+# Logs
+logs
+*.log*
+
+node_modules
+.DS_Store
+dist
+dist-ssr
+coverage
+*.local
+
+# Cypress
+/cypress/videos/
+/cypress/screenshots/
+
+# Vitest
+__screenshots__/
+
+# Vite
+*.timestamp-*-*.mjs

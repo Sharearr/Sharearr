@@ -6,7 +6,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -30,7 +30,7 @@ type User struct {
 	ID        int64     `db:"id"`
 	Username  string    `db:"username"`
 	Email     string    `db:"email"`
-	APIKey    string    `db:"api_key"`
+	ApiKey    string    `db:"api_key"`
 	CreatedAt time.Time `db:"created_at"`
 	UpdatedAt time.Time `db:"updated_at"`
 }
@@ -47,7 +47,7 @@ func (r *UserRepository) InsertIfEmpty(ctx context.Context, u *User) (bool, erro
 	result, err := r.db.ExecContext(ctx,
 		`INSERT INTO users (username, email, api_key)
 		 SELECT ?, ?, ? WHERE NOT EXISTS (SELECT 1 FROM users)`,
-		u.Username, u.Email, u.APIKey,
+		u.Username, u.Email, u.ApiKey,
 	)
 	if err != nil {
 		return false, fmt.Errorf("insert user: %w", err)
@@ -56,7 +56,7 @@ func (r *UserRepository) InsertIfEmpty(ctx context.Context, u *User) (bool, erro
 	return n > 0, nil
 }
 
-func (r *UserRepository) GetByAPIKey(ctx context.Context, apiKey string) (*User, error) {
+func (r *UserRepository) GetByApiKey(ctx context.Context, apiKey string) (*User, error) {
 	u := &User{}
 	err := r.db.GetContext(ctx, u,
 		`SELECT id, username, email, api_key, created_at, updated_at
@@ -64,6 +64,18 @@ func (r *UserRepository) GetByAPIKey(ctx context.Context, apiKey string) (*User,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("get user by api key: %w", err)
+	}
+	return u, nil
+}
+
+func (r *UserRepository) GetByUsername(ctx context.Context, username string) (*User, error) {
+	u := &User{}
+	err := r.db.GetContext(ctx, u,
+		`SELECT id, username, email, api_key, created_at, updated_at
+		 FROM users WHERE username = ?`, username,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("get user by username: %w", err)
 	}
 	return u, nil
 }
@@ -89,27 +101,38 @@ func (s *UserService) Init(ctx context.Context, cfg UserConfig) error {
 		cfg.Username, _, _ = strings.Cut(cfg.Email, "@")
 	}
 
-	if cfg.APIKey == "" {
+	if cfg.ApiKey == "" {
 		b := make([]byte, 16)
 		if _, err := rand.Read(b); err != nil {
 			return fmt.Errorf("generate api key: %w", err)
 		}
-		cfg.APIKey = fmt.Sprintf("%x", b)
+		cfg.ApiKey = fmt.Sprintf("%x", b)
 	}
 
-	u := &User{Username: cfg.Username, Email: cfg.Email, APIKey: cfg.APIKey}
+	u := &User{Username: cfg.Username, Email: cfg.Email, ApiKey: cfg.ApiKey}
 	inserted, err := s.repo.InsertIfEmpty(ctx, u)
 	if err != nil {
 		return err
 	}
 	if inserted {
-		log.Printf("user %q api_key=%s", u.Username, u.APIKey)
+		slog.Info("User created", "username", u.Username, "apikey", u.ApiKey)
 	}
 	return nil
 }
 
-func (s *UserService) GetByAPIKey(ctx context.Context, apiKey string) (*User, error) {
-	u, err := s.repo.GetByAPIKey(ctx, apiKey)
+func (s *UserService) GetByApiKey(ctx context.Context, apiKey string) (*User, error) {
+	u, err := s.repo.GetByApiKey(ctx, apiKey)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, ErrUserNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	return u, nil
+}
+
+func (s *UserService) GetByUsername(ctx context.Context, username string) (*User, error) {
+	u, err := s.repo.GetByUsername(ctx, username)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrUserNotFound
 	}
@@ -131,7 +154,7 @@ func Auth(db *sqlx.DB) gin.HandlerFunc {
 			return
 		}
 
-		u, err := service.GetByAPIKey(c.Request.Context(), apiKey)
+		u, err := service.GetByApiKey(c.Request.Context(), apiKey)
 		if errors.Is(err, ErrUserNotFound) {
 			c.AbortWithStatus(http.StatusUnauthorized)
 			return

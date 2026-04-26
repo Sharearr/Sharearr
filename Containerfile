@@ -1,12 +1,23 @@
-FROM golang:1.26-bookworm AS builder
+FROM golang:1.26-bookworm AS task
+RUN go install github.com/go-task/task/v3/cmd/task@v3.50.0
 
+FROM node:lts-bookworm-slim AS web
+COPY --from=task /go/bin/task /usr/local/bin/task
 WORKDIR /build
+COPY web/app/package.json web/app/package-lock.json web/app/
+RUN npm ci --prefix web/app
+COPY web/app web/app
+COPY taskfile.yml .
+RUN task web:build
 
+FROM golang:1.26-bookworm AS builder
+COPY --from=task /go/bin/task /usr/local/bin/task
+WORKDIR /build
 COPY go.mod go.sum ./
 RUN go mod download
-
 COPY . .
-RUN CGO_ENABLED=1 GOOS=linux go build -tags sqlite_fts5,container -ldflags="-w -s" -o sharearr ./cmd/sharearr
+COPY --from=web /build/web/app/dist ./web/app/dist
+RUN task build:go:container
 
 FROM debian:bookworm-slim
 

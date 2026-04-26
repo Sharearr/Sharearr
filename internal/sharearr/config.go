@@ -1,6 +1,7 @@
 package sharearr
 
 import (
+	"crypto/rand"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -19,11 +20,12 @@ import (
 )
 
 type Config struct {
-	Port  int        `koanf:"port"  toml:"port"`
-	DB    string     `koanf:"db"    toml:"db"`
-	Debug bool       `koanf:"debug" toml:"-"`
-	Log   LogConfig  `koanf:"log"   toml:"log"`
-	Init  InitConfig `koanf:"init"  toml:"-"`
+	Port          int        `koanf:"port"            toml:"port"`
+	DB            string     `koanf:"db"              toml:"db"`
+	Debug         bool       `koanf:"debug"           toml:"-"`
+	SecretKeyBase []byte     `koanf:"secret_key_base" toml:"secret_key_base"`
+	Log           LogConfig  `koanf:"log"             toml:"log"`
+	Init          InitConfig `koanf:"init"            toml:"-"`
 }
 
 // InitConfig is excluded from the config file — values come from env vars or
@@ -35,7 +37,7 @@ type InitConfig struct {
 type UserConfig struct {
 	Email    string `koanf:"email"    toml:"-"`
 	Username string `koanf:"username" toml:"-"`
-	APIKey   string `koanf:"apikey"   toml:"-"`
+	ApiKey   string `koanf:"apikey"   toml:"-"`
 }
 
 type LogConfig struct {
@@ -66,6 +68,7 @@ func LoadConfig(args []string) (*Config, error) {
 	flags.StringP("init-user-email", "e", "", "Email for the initial user")
 	flags.StringP("init-user-username", "u", "", "Username for the initial user")
 	flags.StringP("init-user-apikey", "k", "", "API key for the initial user")
+	flags.BytesHex("secret-key-base", nil, "Secret key base (hex-encoded)")
 	if err := flags.Parse(args); err != nil {
 		if errors.Is(err, pflag.ErrHelp) {
 			return nil, ErrHelp
@@ -118,6 +121,13 @@ func LoadConfig(args []string) (*Config, error) {
 	var cfg Config
 	if err := k.Unmarshal("", &cfg); err != nil {
 		return nil, fmt.Errorf("unmarshal config: %w", err)
+	}
+
+	if len(cfg.SecretKeyBase) == 0 {
+		cfg.SecretKeyBase = make([]byte, 48)
+		if _, err := rand.Read(cfg.SecretKeyBase); err != nil {
+			return nil, fmt.Errorf("generate secret key base: %w", err)
+		}
 	}
 
 	if _, err := os.Stat(configPath); errors.Is(err, fs.ErrNotExist) { //nolint:gosec
