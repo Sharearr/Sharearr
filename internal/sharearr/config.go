@@ -37,7 +37,7 @@ type InitConfig struct {
 type UserConfig struct {
 	Email    string `koanf:"email"    toml:"-"`
 	Username string `koanf:"username" toml:"-"`
-	APIKey   string `koanf:"apikey"   toml:"-"`
+	ApiKey   string `koanf:"apikey"   toml:"-"`
 }
 
 type LogConfig struct {
