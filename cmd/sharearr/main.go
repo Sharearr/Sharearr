@@ -53,7 +53,10 @@ func main() {
 		panic(err)
 	}
 
-	authHandler := sharearr.NewAuthHandler(cfg.SecretKeyBase, userService)
+	authHandler, err := sharearr.NewAuthHandler(cfg.SecretKeyBase, userService)
+	if err != nil {
+		panic(err)
+	}
 
 	router := gin.New()
 	router.Use(logMiddleware)
